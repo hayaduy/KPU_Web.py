@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.18", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.19", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -50,7 +50,7 @@ DATABASE_INFO = {
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. THEME CSS (NEON INTEGRATED ROW) ---
+# --- 3. THEME CSS (NEON WRAP PERMANENT) ---
 st.markdown("""
     <style>
     .stApp {
@@ -64,39 +64,39 @@ st.markdown("""
 
     /* CENTER ALIGNMENT */
     [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; }
-    .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; gap: 10px !important; }
+    .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; width: 100% !important; gap: 10px !important; }
     .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
 
-    /* BOX NEON INTEGRATED (Dari Nama sampai Update) */
+    /* FIX: NEON BOX WRAPPER - Menghilangkan border melayang */
     .staff-row-card {
         background: rgba(0, 0, 0, 0.6) !important; 
-        border: 2px solid #fbbf24 !important; /* Neon Oranye permanen */
-        box-shadow: 0 0 15px rgba(251, 191, 36, 0.3); /* Efek Cahaya Neon */
-        border-radius: 50px; /* Membuat bentuk lonjong sesuai gambar */
-        padding: 10px 25px; 
-        margin: 0 auto 12px auto; 
-        max-width: 1100px;
-        transition: all 0.3s ease; 
+        /* Pakai box-shadow & border langsung di div utama */
+        border: 2px solid #fbbf24 !important; 
+        box-shadow: 0 0 15px rgba(251, 191, 36, 0.3), inset 0 0 5px rgba(251, 191, 36, 0.2) !important;
+        border-radius: 60px !important; /* Lonjong sempurna */
+        padding: 12px 30px !important; 
+        margin: 0 auto 15px auto !important; 
+        max-width: 1150px;
         display: flex; 
         align-items: center;
+        transition: 0.3s;
     }
     
     .staff-row-card:hover {
+        box-shadow: 0 0 25px rgba(251, 191, 36, 0.7) !important;
         background: rgba(251, 191, 36, 0.1) !important;
-        box-shadow: 0 0 25px rgba(251, 191, 36, 0.6);
-        transform: scale(1.01);
     }
 
     .val-nama { font-size: clamp(16px, 4vw, 24px) !important; font-weight: 900; color: white; margin: 0; }
     .label-micro { color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 0; font-weight: bold; }
     .val-mini { color: #fbbf24; font-weight: bold; font-size: 18px; margin: 0; }
     
-    /* Tombol Update transparan agar tidak nabrak neon */
     div.stButton > button { 
-        border-radius: 20px !important; 
-        background: rgba(255,255,255,0.1) !important;
-        border: 1px solid #fbbf24 !important;
+        border-radius: 25px !important; 
+        background: rgba(255,255,255,0.05) !important;
+        border: 1px solid rgba(251, 191, 36, 0.5) !important;
         color: white !important;
+        height: 40px !important;
     }
 
     #MainMenu, footer, header {visibility: hidden;}
@@ -138,6 +138,7 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#EF4444"
             
+            # WRAPPER NEON
             st.markdown(f'<div class="staff-row-card">', unsafe_allow_html=True)
             cn, cp, cs, ck, cb = st.columns([3.5, 1.2, 1.2, 2.5, 1.2])
             with cn:
@@ -167,7 +168,7 @@ with c2:
 with c3:
     if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# PANEL REKAP (FITUR FILTER NAMA DI SINI)
+# PANEL REKAP (FILTER NAMA DI SINI)
 if st.session_state.get('show_rekap', False):
     st.markdown("<div style='background-color:rgba(0,0,0,0.8); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-bottom:15px;'>", unsafe_allow_html=True)
     st.write("### ADVANCED REKAP EXCEL")
@@ -179,7 +180,7 @@ if st.session_state.get('show_rekap', False):
     nm_opts = ["-- Semua --"]
     if kat_r == "PNS": nm_opts += MASTER_PNS
     elif kat_r == "PPPK": nm_opts += MASTER_PPPK
-    nm_r = r4.selectbox("Pilih Nama Spesifik (Opsional)", nm_opts)
+    nm_r = r4.selectbox("Pilih Nama Spesifik", nm_opts)
     
     if st.button("🚀 GENERATE EXCEL"):
         df_all_f = pd.concat([fetch_data(URL_PNS), fetch_data(URL_PPPK)])
