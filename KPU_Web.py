@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.29", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.30", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA & HOLIDAYS 2026 ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -69,23 +69,47 @@ DATABASE_INFO = {
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. LUXURY CSS ---
+# --- 3. LUXURY CSS (WITH RUNNING TEXT STYLE) ---
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(180deg, #800000 0%, #1a0208 50%, #000000 85%, #ff8c00 100%) !important; background-attachment: fixed !important; }
     .header-container { text-align: center; padding-top: 10px; }
     .main-title { font-size: clamp(24px, 7vw, 55px) !important; font-weight: 900; color: white !important; margin: 0; }
     .time-glow { font-size: clamp(30px, 9vw, 55px) !important; color: #fbbf24 !important; text-shadow: 0 0 30px rgba(251, 191, 36, 0.9) !important; font-weight: bold; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
+
+    /* RUNNING TEXT STYLE */
+    .marquee-container {
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 10px 0;
+        margin-bottom: 20px;
+        overflow: hidden;
+        border-radius: 10px;
+    }
+    .marquee-text {
+        display: inline-block;
+        white-space: nowrap;
+        animation: marquee 20s linear infinite;
+        font-size: 20px;
+        font-weight: 800;
+        color: white;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    }
+    @keyframes marquee {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+    }
+
     [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; }
     .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; gap: 10px !important; }
-    .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
+    .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border-bottom: 3px solid #fbbf24 !important; color: white !important; }
+    
     .neon-row { background: rgba(0, 0, 0, 0.6) !important; border: 2px solid white !important; box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), inset 0 0 5px rgba(255, 255, 255, 0.2) !important; border-radius: 8px !important; padding: 12px 25px !important; margin-bottom: 10px !important; max-width: 1100px; margin-left: auto; margin-right: auto; transition: 0.3s ease; }
     [data-testid="column"] { display: flex; flex-direction: column; justify-content: center; padding: 0 !important; }
     .val-nama { font-size: clamp(16px, 4vw, 24px) !important; font-weight: 900; color: white; margin: 0; line-height: 1.2; }
     .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; font-weight: bold; }
     .val-mini { color: #fbbf24; font-weight: bold; font-size: 18px; margin: 0; }
     div.stButton > button { border-radius: 8px !important; background: rgba(255,255,255,0.05) !important; border: 1px solid white !important; color: white !important; height: 40px !important; width: 100% !important; }
-    /* Style tombol saat disabled */
     div.stButton > button:disabled { background: rgba(255,255,255,0.02) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.2) !important; cursor: not-allowed !important; }
     #MainMenu, footer, header {visibility: hidden;}
     </style>
@@ -112,12 +136,9 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
     log = {}
     l_in, l_out = [datetime.strptime(x, "%H:%M").time() for x in ["09:00", "15:30"]]
     
-    # LOGIC HOLIDAY / WEEKEND
     date_str = target_date.strftime("%Y-%m-%d")
     is_weekend = target_date.weekday() >= 5
     holiday_name = LIBUR_NASIONAL_2026.get(date_str)
-    
-    # Check if selected dashboard date is a holiday
     is_locked = (holiday_name is not None) or is_weekend
 
     if not df.empty:
@@ -134,32 +155,36 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
     with tab_obj:
         if is_locked:
             reason = holiday_name if holiday_name else "AKHIR PEKAN"
-            st.info(f"🛡️ **SISTEM TERKUNCI:** Hari ini adalah {reason}. Selamat beristirahat, Coy! ☕")
+            # CSS UNTUK RUNNING TEXT
+            st.markdown(f'''
+                <div class="marquee-container">
+                    <div class="marquee-text">
+                        🛡️ SISTEM TERKUNCI: Hari ini adalah {reason}. Selamat beristirahat, Coy! ☕  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  
+                        🛡️ SISTEM TERKUNCI: Hari ini adalah {reason}. Selamat beristirahat, Coy! ☕
+                    </div>
+                </div>
+            ''', unsafe_allow_html=True)
 
         for p in master:
             if p not in log:
                 if holiday_name: d = {"m": "--:--", "p": "--:--", "k": f"LIBUR ({holiday_name})"}
                 elif is_weekend: d = {"m": "--:--", "p": "--:--", "k": "LIBUR (AKHIR PEKAN)"}
                 else: d = {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"}
-            else:
-                d = log[p]
+            else: d = log[p]
                 
             clr = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#3b82f6" if "LIBUR" in d['k'] else "#EF4444"
-            
             st.markdown('<div class="neon-row">', unsafe_allow_html=True)
             cn, cp, cs, ck, cb = st.columns([3.5, 1.2, 1.2, 2.5, 1.3])
             cn.markdown(f"<p class='label-micro'>👤 PEGAWAI</p><p class='val-nama'>{p}</p>", unsafe_allow_html=True)
             cp.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
             cs.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
             ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:14px;'>{d['k']}</p>", unsafe_allow_html=True)
-            
             with cb:
-                # Tombol dinonaktifkan jika hari libur
                 if st.button("Update ✅", key=f"u_{tab_name}_{p}", disabled=is_locked):
                     info = DATABASE_INFO.get(p)
                     fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
                     requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data={"entry.960346359":p,"entry.468881973":info[0],"entry.159009649":info[1],"submit":"Submit"})
-                    st.toast(f"✅ Absen {p} berhasil diupdate!", icon="🚀")
+                    st.toast(f"✅ Berhasil diupdate!", icon="🚀")
                     st.cache_data.clear()
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -169,6 +194,7 @@ st_autorefresh(interval=2 * 60 * 1000, key="datarefresh")
 st.markdown('<div class="header-container"><p class="main-title">MONITORING ABSENSI KPU HSS</p></div>', unsafe_allow_html=True)
 clock_fragment()
 
+# Navigation & Excel Filter tetap aman
 c1, c2, c3 = st.columns([1.5, 1, 1.5])
 with c1:
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
