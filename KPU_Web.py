@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.12", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.13", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA & LINKS ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -50,10 +50,15 @@ DATABASE_INFO = {
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. LUXURY CSS (CENTERED & BOXED) ---
+# --- 3. LUXURY CSS (PERMINTAAN BACKGROUND BARU) ---
 st.markdown("""
     <style>
-    .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
+    /* Background Maroon Gradasi Hitam & Oren Tipis */
+    .main {
+        background: linear-gradient(160deg, #4c0519 0%, #1a0208 45%, #000000 85%, #d977061a 100%);
+        color: #f8fafc;
+    }
+    
     .header-container { text-align: center; width: 100%; padding-top: 10px; }
     .main-title { font-size: clamp(30px, 7vw, 60px) !important; font-weight: 900; color: white; margin: 0; }
     .time-glow { font-size: clamp(35px, 9vw, 60px) !important; color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.7); font-weight: bold; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
@@ -65,7 +70,7 @@ st.markdown("""
 
     /* STAFF ROW CARD & NAME BOX */
     .staff-row-card {
-        background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(251, 191, 36, 0.1);
+        background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(251, 191, 36, 0.1);
         border-radius: 12px; padding: 6px 15px; margin: 0 auto 6px auto; max-width: 1050px;
         transition: all 0.3s ease; display: flex; align-items: center;
     }
@@ -146,14 +151,13 @@ with c3:
     if st.button("📥 EXCEL REKAP"):
         st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# PANEL REKAP (ALL FEATURES RESTORED)
+# PANEL REKAP
 if st.session_state.get('show_rekap', False):
     st.markdown("<div style='background-color:rgba(0,0,0,0.6); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-bottom:10px;'>", unsafe_allow_html=True)
     st.write("### ADVANCED REKAP EXCEL")
     r1, r2 = st.columns(2)
     bln_r = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
     thn_r = r2.selectbox("Tahun", range(2024, 2031), index=2)
-    
     r3, r4 = st.columns(2)
     kat_r = r3.selectbox("Kategori", ["SEMUA PEGAWAI", "PNS", "PPPK"])
     nm_opts = ["-- Semua --"]
@@ -166,16 +170,13 @@ if st.session_state.get('show_rekap', False):
         t_c, n_c = df_all_f.columns[0], df_all_f.columns[1]
         df_f = df_all_f[df_all_f[t_c].dt.year == thn_r].copy()
         if bln_r != "SEPANJANG TAHUN": df_f = df_f[df_f[t_c].dt.month == LIST_BULAN.index(bln_r)]
-        
         if kat_r == "PNS": df_f = df_f[df_f[n_c].isin(MASTER_PNS)]
         elif kat_r == "PPPK": df_f = df_f[df_f[n_c].isin(MASTER_PPPK)]
         if "-- Semua" not in nm_r: df_f = df_f[df_f[n_c].str.contains(nm_r, case=False, na=False)]
-        
         if not df_f.empty:
             df_f[t_c] = df_f[t_c].dt.strftime('%d/%m/%Y %H:%M')
             out = BytesIO()
             with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
-            # MOBILE FIX: Mime type & width
             st.download_button(
                 label="💾 DOWNLOAD SEKARANG", 
                 data=out.getvalue(), 
@@ -190,7 +191,6 @@ if st.session_state.get('show_rekap', False):
 df_all = pd.concat([fetch_data(URL_PNS), fetch_data(URL_PPPK)])
 t1, t2, t3 = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 tgl = st.session_state.get('d_tgl', datetime.now().date())
-
 draw_rows(df_all, list(DATABASE_INFO.keys()), t1, tgl, "all")
 draw_rows(fetch_data(URL_PNS), MASTER_PNS, t2, tgl, "pns")
 draw_rows(fetch_data(URL_PPPK), MASTER_PPPK, t3, tgl, "pppk")
