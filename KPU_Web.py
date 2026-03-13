@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.15", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.16", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -50,10 +50,10 @@ DATABASE_INFO = {
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. ULTRA BRIGHT CSS (PAKSA GRADASI MENYALA) ---
+# --- 3. LUXURY UNIFIED CSS ---
 st.markdown("""
     <style>
-    /* Gradasi Paksa: Maroon Terang -> Hitam -> Oranye Neon */
+    /* Background Mega Gradasi */
     .stApp {
         background: linear-gradient(180deg, #990000 0%, #1e0000 50%, #ff8c00 100%) !important;
         background-attachment: fixed !important;
@@ -63,30 +63,41 @@ st.markdown("""
     .main-title { font-size: clamp(30px, 7vw, 60px) !important; font-weight: 900; color: white !important; margin: 0; }
     .time-glow { font-size: clamp(35px, 9vw, 60px) !important; color: #fbbf24 !important; text-shadow: 0 0 30px rgba(251, 191, 36, 0.9) !important; font-weight: bold; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
 
-    /* PAKSA CENTER SEMUA KOMPONEN */
+    /* CENTER ALIGNMENT */
     [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; }
     .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; width: 100% !important; gap: 10px !important; }
     .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
 
-    /* STAFF CARD & NAME BOX */
+    /* UNIFIED ROW CARD (Background seragam dengan box nama) */
     .staff-row-card {
-        background: rgba(0, 0, 0, 0.45) !important; border: 1px solid rgba(251, 191, 36, 0.3) !important;
-        border-radius: 12px; padding: 10px 15px; margin: 0 auto 8px auto; max-width: 1050px;
-        transition: all 0.3s ease; display: flex; align-items: center;
+        background: rgba(255, 255, 255, 0.08) !important; /* Warna pembungkus nama sebelumnya */
+        border: 1px solid rgba(251, 191, 36, 0.2) !important;
+        border-left: 6px solid #fbbf24 !important; /* Aksen garis oranye vertikal di paling kiri */
+        border-radius: 12px; 
+        padding: 10px 15px; 
+        margin: 0 auto 10px auto; 
+        max-width: 1050px;
+        transition: all 0.3s ease; 
+        display: flex; 
+        align-items: center;
     }
     .staff-row-card:hover {
-        background: rgba(251, 191, 36, 0.2) !important; border: 2px solid #fbbf24 !important;
-        box-shadow: 0 0 25px rgba(251, 191, 36, 0.5) !important; transform: scale(1.01);
+        background: rgba(255, 255, 255, 0.12) !important;
+        border: 1px solid #fbbf24 !important;
+        box-shadow: 0 0 25px rgba(251, 191, 36, 0.5) !important;
+        transform: scale(1.01);
     }
-    .name-container { background: rgba(255, 255, 255, 0.08) !important; border-left: 5px solid #fbbf24 !important; border-radius: 6px; padding: 8px 15px; display: flex; flex-direction: column; justify-content: center; }
+
     .val-nama { font-size: clamp(18px, 4vw, 24px) !important; font-weight: 900 !important; color: white !important; margin: 0; }
+    .label-micro { color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 0; font-weight: bold; }
+    .val-mini { color: #fbbf24; font-weight: bold; font-size: 18px; margin: 0; }
     
     #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
 # --- 4. FUNCTIONS ---
-@st.cache_data(ttl=5) # Refresh cache lebih cepat
+@st.cache_data(ttl=5)
 def fetch_data(url):
     try:
         res = requests.get(f"{url}&nc={random.random()}", timeout=10)
@@ -119,13 +130,18 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
         for p in master:
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#EF4444"
+            
+            # Seluruh baris sekarang satu box yang seragam
             st.markdown(f'<div class="staff-row-card">', unsafe_allow_html=True)
             cn, cp, cs, ck, cb = st.columns([4, 1.2, 1.2, 2, 1.2])
+            
             with cn:
-                st.markdown(f'<div class="name-container"><p style="color:#94a3b8; font-size:10px; margin:0;">PEGAWAI</p><p class="val-nama">{p}</p></div>', unsafe_allow_html=True)
-            cp.markdown(f"<p style='color:#94a3b8; font-size:10px; margin:0;'>PAGI</p><p style='color:#fbbf24; font-weight:bold; font-size:18px;'>{d['m']}</p>", unsafe_allow_html=True)
-            cs.markdown(f"<p style='color:#94a3b8; font-size:10px; margin:0;'>SORE</p><p style='color:#fbbf24; font-weight:bold; font-size:18px;'>{d['p']}</p>", unsafe_allow_html=True)
-            ck.markdown(f"<p style='color:#94a3b8; font-size:10px; margin:0; text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:16px;'>{d['k']}</p>", unsafe_allow_html=True)
+                st.markdown(f'<div><p class="label-micro">PEGAWAI</p><p class="val-nama">{p}</p></div>', unsafe_allow_html=True)
+            
+            cp.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
+            cs.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
+            ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:16px;'>{d['k']}</p>", unsafe_allow_html=True)
+            
             if cb.button("Update ✅", key=f"u_{tab_name}_{p}"):
                 info = DATABASE_INFO.get(p)
                 fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
