@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.17", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.18", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -50,7 +50,7 @@ DATABASE_INFO = {
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. THEME CSS (SOLID BOX & CENTER) ---
+# --- 3. THEME CSS (NEON INTEGRATED ROW) ---
 st.markdown("""
     <style>
     .stApp {
@@ -62,40 +62,49 @@ st.markdown("""
     .main-title { font-size: clamp(30px, 7vw, 60px) !important; font-weight: 900; color: white !important; margin: 0; }
     .time-glow { font-size: clamp(35px, 9vw, 60px) !important; color: #fbbf24 !important; text-shadow: 0 0 30px rgba(251, 191, 36, 0.9) !important; font-weight: bold; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
 
-    /* Nav & Tabs Center */
+    /* CENTER ALIGNMENT */
     [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; }
-    .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; width: 100% !important; gap: 10px !important; }
+    .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; gap: 10px !important; }
     .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
 
-    /* BARIS PANJANG BERBUNGKUS HITAM TIPIS */
+    /* BOX NEON INTEGRATED (Dari Nama sampai Update) */
     .staff-row-card {
-        background: rgba(0, 0, 0, 0.5) !important; /* Box Hitam sepanjang baris */
-        border: 1px solid rgba(251, 191, 36, 0.2) !important;
-        border-left: 6px solid #fbbf24 !important; /* Aksen oranye tetap ada */
-        border-radius: 12px; 
-        padding: 12px 18px; 
-        margin: 0 auto 10px auto; 
-        max-width: 1080px;
-        transition: 0.3s ease; 
+        background: rgba(0, 0, 0, 0.6) !important; 
+        border: 2px solid #fbbf24 !important; /* Neon Oranye permanen */
+        box-shadow: 0 0 15px rgba(251, 191, 36, 0.3); /* Efek Cahaya Neon */
+        border-radius: 50px; /* Membuat bentuk lonjong sesuai gambar */
+        padding: 10px 25px; 
+        margin: 0 auto 12px auto; 
+        max-width: 1100px;
+        transition: all 0.3s ease; 
         display: flex; 
         align-items: center;
     }
+    
     .staff-row-card:hover {
-        background: rgba(255, 255, 255, 0.05) !important;
-        border: 1px solid #fbbf24 !important;
-        box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+        background: rgba(251, 191, 36, 0.1) !important;
+        box-shadow: 0 0 25px rgba(251, 191, 36, 0.6);
+        transform: scale(1.01);
     }
 
-    .val-nama { font-size: clamp(18px, 4vw, 24px) !important; font-weight: 900; color: white; margin: 0; }
+    .val-nama { font-size: clamp(16px, 4vw, 24px) !important; font-weight: 900; color: white; margin: 0; }
     .label-micro { color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 0; font-weight: bold; }
     .val-mini { color: #fbbf24; font-weight: bold; font-size: 18px; margin: 0; }
     
+    /* Tombol Update transparan agar tidak nabrak neon */
+    div.stButton > button { 
+        border-radius: 20px !important; 
+        background: rgba(255,255,255,0.1) !important;
+        border: 1px solid #fbbf24 !important;
+        color: white !important;
+    }
+
     #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. DATA LOGIC ---
-@st.cache_data(ttl=5)
+# --- 4. FUNCTIONS ---
+@st.cache_data(ttl=15)
 def fetch_data(url):
     try:
         res = requests.get(f"{url}&nc={random.random()}", timeout=10)
@@ -148,6 +157,7 @@ st_autorefresh(interval=2 * 60 * 1000, key="datarefresh")
 st.markdown('<div class="header-container"><p class="main-title">MONITORING ABSENSI KPU HSS</p></div>', unsafe_allow_html=True)
 clock_fragment()
 
+# Navigation Row
 c1, c2, c3 = st.columns([1.5, 1, 1.5])
 with c1:
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
@@ -157,14 +167,13 @@ with c2:
 with c3:
     if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# PANEL REKAP DENGAN FILTER NAMA (RESTORATION)
+# PANEL REKAP (FITUR FILTER NAMA DI SINI)
 if st.session_state.get('show_rekap', False):
     st.markdown("<div style='background-color:rgba(0,0,0,0.8); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-bottom:15px;'>", unsafe_allow_html=True)
     st.write("### ADVANCED REKAP EXCEL")
     r1, r2 = st.columns(2)
     bln_r = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
     thn_r = r2.selectbox("Tahun", range(2024, 2031), index=2)
-    
     r3, r4 = st.columns(2)
     kat_r = r3.selectbox("Kategori", ["SEMUA PEGAWAI", "PNS", "PPPK"])
     nm_opts = ["-- Semua --"]
@@ -180,7 +189,6 @@ if st.session_state.get('show_rekap', False):
         if kat_r == "PNS": df_f = df_f[df_f[n_c].isin(MASTER_PNS)]
         elif kat_r == "PPPK": df_f = df_f[df_f[n_c].isin(MASTER_PPPK)]
         if "-- Semua" not in nm_r: df_f = df_f[df_f[n_c].str.contains(nm_r, case=False, na=False)]
-        
         if not df_f.empty:
             df_f[t_c] = df_f[t_c].dt.strftime('%d/%m/%Y %H:%M')
             out = BytesIO()
