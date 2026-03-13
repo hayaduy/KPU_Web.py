@@ -4,70 +4,60 @@ import requests
 from io import StringIO, BytesIO
 from datetime import datetime
 import random
-import time
+import pytz # Wajib untuk waktu Makassar
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="KPU HSS Presence Hub v18.2",
+    page_title="KPU HSS Presence Hub v16.10",
     page_icon="🏢",
     layout="wide"
 )
 
-# --- 2. LUXURY CSS (MOBILE RESPONSIVE) ---
+# --- 2. LUXURY CSS (MOBILE & DESKTOP SYNC) ---
 st.markdown("""
     <style>
-    /* Background & Global */
     .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
     
-    /* Header Container */
-    .header-container { text-align: center; padding: 10px 0; }
-    
-    /* Responsive Title & Clock */
-    .main-title { font-size: clamp(30px, 8vw, 65px) !important; font-weight: 900; color: white; margin: 0; line-height: 1; }
-    .time-glow { font-size: clamp(35px, 10vw, 60px) !important; color: #fbbf24; text-shadow: 0 0 20px rgba(251, 191, 36, 0.6); font-weight: bold; font-family: 'JetBrains Mono', monospace; }
+    .header-container { text-align: center; padding: 10px 0; margin-bottom: 20px; }
+    .main-title { font-size: clamp(24px, 6vw, 55px) !important; font-weight: 900; color: white; margin: 0; line-height: 1.2; }
+    .time-glow { font-size: clamp(30px, 8vw, 50px) !important; color: #fbbf24; text-shadow: 0 0 20px rgba(251, 191, 36, 0.6); font-weight: bold; font-family: 'JetBrains Mono', monospace; margin-top: 5px; }
 
-    /* Navigasi Buttons Responsive */
+    /* Navigasi Buttons SEJAJAR & FULL WIDTH */
     div.stButton > button {
         width: 100% !important;
+        height: 55px !important;
         border-radius: 30px !important;
         font-weight: bold !important;
+        font-size: 14px !important;
         border: 1px solid rgba(251, 191, 36, 0.3) !important;
         background-color: rgba(255, 255, 255, 0.05) !important;
         color: white !important;
     }
 
-    /* BARIS PEGAWAI - AUTO CENTER & NARROW */
+    /* BARIS PEGAWAI - RAPAT & CENTERED */
     .staff-row-card {
         background: rgba(0, 0, 0, 0.3);
         border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 8px 15px;
-        margin: 0 auto 6px auto;
+        margin: 0 auto 5px auto;
         max-width: 1000px;
-        transition: 0.3s ease;
-    }
-    .staff-row-card:hover {
-        background: rgba(251, 191, 36, 0.1) !important;
-        border: 1px solid #fbbf24 !important;
     }
     
-    /* Font Size untuk HP */
-    .val-nama { font-size: clamp(16px, 4vw, 26px) !important; font-weight: 800; color: white; margin: 0; }
-    .val-mini { font-size: clamp(14px, 3vw, 18px) !important; font-weight: 600; color: #fbbf24; margin: 0; }
+    .val-nama { font-size: clamp(16px, 4vw, 24px) !important; font-weight: 800; color: white; margin: 0; }
+    .val-mini { font-size: clamp(14px, 3.5vw, 18px) !important; font-weight: 600; color: #fbbf24; margin: 0; }
     .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; }
     
-    /* Status Colors */
     .status-hadir { color: #10B981; font-weight: bold; }
     .status-terlambat { color: #F59E0B; font-weight: bold; }
     .status-alpa { color: #EF4444; font-weight: bold; }
 
-    /* Hilangkan Spasi Standar Streamlit */
     #MainMenu, footer, header {visibility: hidden;}
-    .block-container { padding-top: 1rem !important; }
+    .block-container { padding-top: 2rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. DATABASE ---
+# --- 3. DATABASE (Tetap 31 Orang) ---
 DATABASE_INFO = {
     "Suwanto": ["19720521 200912 1 001", "Sekretaris KPU"],
     "Wawan Setiawan": ["19860601 201012 1 004", "Kasubbag TP-Hupmas"],
@@ -109,7 +99,7 @@ LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei",
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-# --- 4. LOGIC ---
+# --- 4. DATA LOGIC ---
 @st.cache_data(ttl=15)
 def fetch_cloud_data(url):
     try:
@@ -150,8 +140,7 @@ def draw_rows(df, master_list, tab_obj, target_date, tab_name):
                 st.cache_data.clear(); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. MAIN UI ---
-# JAM REAL-TIME FIX (Tanpa rerun yang merusak layout)
+# --- 5. MAIN UI (HEADER & NAVIGATION) ---
 st.markdown("""
     <div class="header-container">
         <p class="main-title">MONITORING ABSENSI KPU HSS</p>
@@ -159,10 +148,14 @@ st.markdown("""
     </div>
     <script>
         function updateClock() {
+            // Waktu lokal Makassar (UTC+8)
             const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const makassarTime = new Date(utc + (3600000 * 8));
+            
+            const hours = String(makassarTime.getHours()).padStart(2, '0');
+            const minutes = String(makassarTime.getMinutes()).padStart(2, '0');
+            const seconds = String(makassarTime.getSeconds()).padStart(2, '0');
             const clock = document.getElementById('clock-display');
             if(clock) clock.innerText = hours + ':' + minutes + ':' + seconds + ' WITA';
         }
@@ -171,7 +164,8 @@ st.markdown("""
     </script>
     """, unsafe_allow_html=True)
 
-# NAVIGASI SEJAJAR FULL WIDTH
+# NAVIGATION ROW (LIHAT TGL, REFRESH, REKAP)
+# Dibuat Full Sejajar Tanpa Celah Berlebih
 col_lih, col_ref, col_rek = st.columns([1,1,1])
 with col_lih:
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
@@ -181,7 +175,7 @@ with col_ref:
 with col_rek:
     if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# Advanced Rekap Panel
+# Advanced Rekap Panel (Full Filter)
 if st.session_state.get('show_rekap', False):
     st.markdown("<div style='background-color:rgba(0,0,0,0.6); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-bottom:10px;'>", unsafe_allow_html=True)
     r1, r2 = st.columns(2); bln = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month); thn = r2.selectbox("Tahun", range(2024, 2031), index=2)
@@ -200,7 +194,7 @@ if st.session_state.get('show_rekap', False):
             df_f[t_c] = df_f[t_c].dt.strftime('%d/%m/%Y %H:%M')
             out = BytesIO()
             with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
-            st.download_button("💾 KLIK DOWNLOAD", out.getvalue(), f"REKAP_{bln}.xlsx", use_container_width=True)
+            st.download_button("💾 DOWNLOAD HASIL", out.getvalue(), f"REKAP_{bln}.xlsx", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --- 6. DASHBOARD ---
