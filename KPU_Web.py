@@ -8,13 +8,12 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.26", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.29", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA & HOLIDAYS 2026 ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-# Daftar Libur Nasional Indonesia 2026 (Prediksi/Umum)
 LIBUR_NASIONAL_2026 = {
     "2026-01-01": "TAHUN BARU 2026",
     "2026-01-19": "ISRA MI'RAJ",
@@ -70,7 +69,7 @@ DATABASE_INFO = {
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. LUXURY CSS (WHITE NEON ROW - NO CHANGES) ---
+# --- 3. LUXURY CSS ---
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(180deg, #800000 0%, #1a0208 50%, #000000 85%, #ff8c00 100%) !important; background-attachment: fixed !important; }
@@ -79,13 +78,15 @@ st.markdown("""
     .time-glow { font-size: clamp(30px, 9vw, 55px) !important; color: #fbbf24 !important; text-shadow: 0 0 30px rgba(251, 191, 36, 0.9) !important; font-weight: bold; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
     [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; }
     .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; gap: 10px !important; }
+    .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
     .neon-row { background: rgba(0, 0, 0, 0.6) !important; border: 2px solid white !important; box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), inset 0 0 5px rgba(255, 255, 255, 0.2) !important; border-radius: 8px !important; padding: 12px 25px !important; margin-bottom: 10px !important; max-width: 1100px; margin-left: auto; margin-right: auto; transition: 0.3s ease; }
-    .neon-row:hover { box-shadow: 0 0 25px rgba(255, 255, 255, 0.8) !important; background: rgba(255, 255, 255, 0.05) !important; }
     [data-testid="column"] { display: flex; flex-direction: column; justify-content: center; padding: 0 !important; }
     .val-nama { font-size: clamp(16px, 4vw, 24px) !important; font-weight: 900; color: white; margin: 0; line-height: 1.2; }
     .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; font-weight: bold; }
     .val-mini { color: #fbbf24; font-weight: bold; font-size: 18px; margin: 0; }
     div.stButton > button { border-radius: 8px !important; background: rgba(255,255,255,0.05) !important; border: 1px solid white !important; color: white !important; height: 40px !important; width: 100% !important; }
+    /* Style tombol saat disabled */
+    div.stButton > button:disabled { background: rgba(255,255,255,0.02) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.2) !important; cursor: not-allowed !important; }
     #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
@@ -113,9 +114,12 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
     
     # LOGIC HOLIDAY / WEEKEND
     date_str = target_date.strftime("%Y-%m-%d")
-    is_weekend = target_date.weekday() >= 5 # 5=Sabtu, 6=Minggu
+    is_weekend = target_date.weekday() >= 5
     holiday_name = LIBUR_NASIONAL_2026.get(date_str)
     
+    # Check if selected dashboard date is a holiday
+    is_locked = (holiday_name is not None) or is_weekend
+
     if not df.empty:
         t_c, n_c = df.columns[0], df.columns[1]
         df_day = df[df[t_c].dt.date == target_date].copy()
@@ -128,8 +132,11 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
                     if jam >= l_out: log[p]["p"] = jam.strftime("%H:%M")
     
     with tab_obj:
+        if is_locked:
+            reason = holiday_name if holiday_name else "AKHIR PEKAN"
+            st.info(f"🛡️ **SISTEM TERKUNCI:** Hari ini adalah {reason}. Selamat beristirahat, Coy! ☕")
+
         for p in master:
-            # Override status jika hari libur tapi tidak ada record absen
             if p not in log:
                 if holiday_name: d = {"m": "--:--", "p": "--:--", "k": f"LIBUR ({holiday_name})"}
                 elif is_weekend: d = {"m": "--:--", "p": "--:--", "k": "LIBUR (AKHIR PEKAN)"}
@@ -145,12 +152,16 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
             cp.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
             cs.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
             ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:14px;'>{d['k']}</p>", unsafe_allow_html=True)
+            
             with cb:
-                if st.button("Update ✅", key=f"u_{tab_name}_{p}"):
+                # Tombol dinonaktifkan jika hari libur
+                if st.button("Update ✅", key=f"u_{tab_name}_{p}", disabled=is_locked):
                     info = DATABASE_INFO.get(p)
                     fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
                     requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data={"entry.960346359":p,"entry.468881973":info[0],"entry.159009649":info[1],"submit":"Submit"})
-                    st.cache_data.clear(); st.rerun()
+                    st.toast(f"✅ Absen {p} berhasil diupdate!", icon="🚀")
+                    st.cache_data.clear()
+                    st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 5. EXECUTION ---
@@ -179,7 +190,7 @@ if st.session_state.get('show_rekap', False):
     if st.button("🚀 GENERATE EXCEL"):
         df_all_f = pd.concat([fetch_data(URL_PNS), fetch_data(URL_PPPK)])
         t_c, n_c = df_all_f.columns[0], df_all_f.columns[1]
-        df_f = df_all_f[df_all_f[t_c].dt.year == thn_r].copy()
+        df_f = df_all_f[df_all_f[t_c].dt.year == int(thn_r)].copy()
         if bln_r != "SEPANJANG TAHUN": df_f = df_f[df_f[t_c].dt.month == LIST_BULAN.index(bln_r)]
         if kat_r == "PNS": df_f = df_f[df_f[n_c].isin(MASTER_PNS)]
         elif kat_r == "PPPK": df_f = df_f[df_f[n_c].isin(MASTER_PPPK)]
