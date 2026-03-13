@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.8", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.9", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA & LINKS ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -48,8 +48,9 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN"]
 }
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
+LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. LUXURY CSS (MAROON & BOLD STRUCTURE) ---
+# --- 3. LUXURY CSS (CENTERED & BOXED) ---
 st.markdown("""
     <style>
     .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
@@ -62,47 +63,20 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; gap: 10px !important; }
     .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
 
-    /* STAFF ROW CARD */
+    /* BOXED NAME WRAPPER */
     .staff-row-card {
-        background: rgba(0, 0, 0, 0.2);
-        border: 1px solid rgba(251, 191, 36, 0.1);
-        border-radius: 12px;
-        padding: 6px 15px;
-        margin: 0 auto 6px auto;
-        max-width: 1050px;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
+        background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(251, 191, 36, 0.1);
+        border-radius: 12px; padding: 8px 15px; margin: 0 auto 6px auto; max-width: 1100px;
+        transition: all 0.3s ease; display: flex; align-items: center;
     }
     .staff-row-card:hover {
-        background: rgba(251, 191, 36, 0.12) !important;
-        border: 1px solid #fbbf24 !important;
-        box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
-        transform: scale(1.005);
+        background: rgba(251, 191, 36, 0.12) !important; border: 1px solid #fbbf24 !important;
+        box-shadow: 0 0 20px rgba(251, 191, 36, 0.3); transform: scale(1.005);
     }
-
-    /* WRAPPER KOLOM NAMA (Ini yang diminta) */
-    .name-container {
-        background: rgba(255, 255, 255, 0.04);
-        border-left: 4px solid #fbbf24; /* Aksen garis oranye di samping nama */
-        border-radius: 6px;
-        padding: 5px 12px;
-        min-height: 50px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    
-    .val-nama { font-size: clamp(16px, 4vw, 22px) !important; font-weight: 800; color: white; margin: 0; line-height: 1.1; }
-    .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; }
+    .name-container { background: rgba(255, 255, 255, 0.04); border-left: 4px solid #fbbf24; border-radius: 6px; padding: 5px 12px; min-height: 50px; display: flex; flex-direction: column; justify-content: center; }
+    .val-nama { font-size: clamp(16px, 4vw, 22px) !important; font-weight: 800; color: white; margin: 0; }
     .val-mini { font-size: 16px; font-weight: 600; color: #fbbf24; margin: 0; }
-    
-    /* Tombol Style */
-    div.stButton > button { 
-        border-radius: 20px !important; font-weight: bold !important; 
-        border: 1px solid rgba(251, 191, 36, 0.3) !important;
-        background: rgba(255,255,255,0.05) !important;
-    }
+    .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; }
 
     #MainMenu, footer, header {visibility: hidden;}
     </style>
@@ -142,23 +116,13 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
         for p in master:
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#EF4444"
-            
             st.markdown(f'<div class="staff-row-card">', unsafe_allow_html=True)
-            # Layout Kolom: Nama mendapat porsi lebih besar dan dibungkus Box
             cn, cp, cs, ck, cb = st.columns([4, 1.2, 1.2, 2, 1.2])
-            
             with cn:
-                st.markdown(f"""
-                    <div class="name-container">
-                        <p class="label-micro">👤 PEGAWAI</p>
-                        <p class="val-nama">{p}</p>
-                    </div>
-                """, unsafe_allow_html=True)
-                
+                st.markdown(f'<div class="name-container"><p class="label-micro">👤 PEGAWAI</p><p class="val-nama">{p}</p></div>', unsafe_allow_html=True)
             cp.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
             cs.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
             ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:15px;'>{d['k']}</p>", unsafe_allow_html=True)
-            
             if cb.button("Update ✅", key=f"u_{tab_name}_{p}"):
                 info = DATABASE_INFO.get(p)
                 fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
@@ -166,12 +130,12 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
                 st.cache_data.clear(); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. EXECUTION ---
+# --- 5. EXECUTION HEADER ---
 st_autorefresh(interval=2 * 60 * 1000, key="datarefresh")
 st.markdown('<div class="header-container"><p class="main-title">MONITORING ABSENSI KPU HSS</p></div>', unsafe_allow_html=True)
 clock_fragment()
 
-# Navigasi Center
+# --- 6. NAVIGATION CENTERED ---
 c1, c2, c3 = st.columns([1.5, 1, 1.5])
 with c1:
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
@@ -179,8 +143,36 @@ with c1:
 with c2:
     if st.button("🔄 REFRESH"): st.cache_data.clear(); st.rerun()
 with c3:
-    if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
+    # PERBAIKAN: Gunakan session_state agar panel rekap tidak hilang saat diklik
+    if st.button("📥 EXCEL REKAP"):
+        st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
+# PANEL REKAP (RESTORATION)
+if st.session_state.get('show_rekap', False):
+    st.markdown("<div style='background-color:rgba(0,0,0,0.6); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-bottom:10px;'>", unsafe_allow_html=True)
+    st.write("### ADVANCED REKAP EXCEL")
+    r1, r2, r3 = st.columns(3)
+    bln_r = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
+    thn_r = r2.selectbox("Tahun", range(2024, 2031), index=2)
+    kat_r = r3.selectbox("Kategori", ["SEMUA PEGAWAI", "PNS", "PPPK"])
+    
+    if st.button("🚀 GENERATE EXCEL"):
+        df_all_f = pd.concat([fetch_data(URL_PNS), fetch_data(URL_PPPK)])
+        t_c, n_c = df_all_f.columns[0], df_all_f.columns[1]
+        df_f = df_all_f[df_all_f[t_c].dt.year == thn_r].copy()
+        if bln_r != "SEPANJANG TAHUN": df_f = df_f[df_f[t_c].dt.month == LIST_BULAN.index(bln_r)]
+        if kat_r == "PNS": df_f = df_f[df_f[n_c].isin(MASTER_PNS)]
+        elif kat_r == "PPPK": df_f = df_f[df_f[n_c].isin(MASTER_PPPK)]
+        
+        if not df_f.empty:
+            df_f[t_c] = df_f[t_c].dt.strftime('%d/%m/%Y %H:%M')
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
+            st.download_button("💾 DOWNLOAD FILE", out.getvalue(), f"REKAP_{kat_r}_{bln_r}.xlsx", use_container_width=True)
+        else: st.error("Data Kosong")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- 7. DASHBOARD RENDER ---
 df_all = pd.concat([fetch_data(URL_PNS), fetch_data(URL_PPPK)])
 t1, t2, t3 = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 tgl = st.session_state.get('d_tgl', datetime.now().date())
