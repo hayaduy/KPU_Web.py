@@ -7,67 +7,12 @@ import random
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="KPU HSS Presence Hub v16.2",
+    page_title="KPU HSS Presence Hub v16.3",
     page_icon="🏢",
     layout="wide"
 )
 
-# Custom CSS untuk membuat tombol persis seperti gambar
-st.markdown("""
-    <style>
-    .main { background-color: #050505; color: #E2E8F0; }
-    
-    /* Center Header */
-    .header-text {
-        text-align: center;
-        font-size: 42px;
-        font-weight: bold;
-        color: white;
-        margin-bottom: 0px;
-    }
-    .wita-text {
-        text-align: center;
-        font-size: 24px;
-        color: #F59E0B;
-        margin-bottom: 30px;
-    }
-
-    /* Styling Tombol Navigasi Utama */
-    div.stButton > button {
-        width: 100%;
-        height: 55px;
-        border-radius: 30px;
-        font-weight: bold;
-        font-size: 16px;
-        border: none;
-        transition: 0.3s;
-    }
-    
-    /* Tombol Lihat Tgl (Abu-abu) */
-    div[data-testid="column"]:nth-child(1) button {
-        background-color: #334155 !important;
-        color: white !important;
-    }
-    
-    /* Tombol Refresh (Orange) */
-    div[data-testid="column"]:nth-child(2) button {
-        background-color: #D97706 !important;
-        color: white !important;
-    }
-    
-    /* Tombol Excel Rekap (Biru) */
-    div[data-testid="column"]:nth-child(3) button {
-        background-color: #1D4ED8 !important;
-        color: white !important;
-    }
-
-    /* Tabs & Rows */
-    .stTabs [aria-selected="true"] { background-color: #EF4444 !important; color: white !important; }
-    .staff-row { border-bottom: 1px solid rgba(255,255,255,0.05); padding: 10px 0; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 2. DATABASE ---
+# --- 2. DATABASE UTAMA (WAJIB DI ATAS) ---
 DATABASE_INFO = {
     "Suwanto": ["19720521 200912 1 001", "Sekretaris KPU"],
     "Wawan Setiawan": ["19860601 201012 1 004", "Kasubbag TP-Hupmas"],
@@ -102,9 +47,29 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN"]
 }
 
+# Inisialisasi Grouping (FIX NameError)
+MASTER_PNS = list(DATABASE_INFO.keys())[:17]
+MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
+LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
+# --- 3. CUSTOM UI CSS ---
+st.markdown("""
+    <style>
+    .main { background-color: #050505; color: #E2E8F0; }
+    .header-text { text-align: center; font-size: 42px; font-weight: bold; color: white; margin-bottom: 0px; }
+    .wita-text { text-align: center; font-size: 24px; color: #F59E0B; margin-bottom: 30px; }
+    div.stButton > button { width: 100%; height: 55px; border-radius: 30px; font-weight: bold; font-size: 16px; border: none; }
+    div[data-testid="column"]:nth-child(1) button { background-color: #334155 !important; color: white !important; }
+    div[data-testid="column"]:nth-child(2) button { background-color: #D97706 !important; color: white !important; }
+    div[data-testid="column"]:nth-child(3) button { background-color: #1D4ED8 !important; color: white !important; }
+    .stTabs [aria-selected="true"] { background-color: #EF4444 !important; color: white !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 4. FUNCTIONS ---
 @st.cache_data(ttl=20)
 def fetch_cloud_data(url):
     try:
@@ -115,75 +80,21 @@ def fetch_cloud_data(url):
         return df.dropna(subset=[t_col]).sort_values(by=t_col)
     except: return pd.DataFrame()
 
-# --- 3. HEADER UI ---
-st.markdown('<p class="header-text">MONITORING ABSENSI KPU HSS</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="wita-text">{datetime.now().strftime("%H:%M:%S")} WITA</p>', unsafe_allow_html=True)
-
-# --- 4. NAVIGATION BUTTONS (TRIPLE COLUMN) ---
-col_lih, col_ref, col_rek = st.columns(3)
-
-with col_lih:
-    # Pakai expander kecil untuk pilih tanggal agar hemat ruang
-    with st.expander(f"📅 Lihat Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
-        st.session_state.d_tgl = st.date_input("Pilih", datetime.now().date(), key="input_tgl")
-
-with col_ref:
-    if st.button("🔄 REFRESH"):
-        st.rerun()
-
-with col_rek:
-    # Tombol Excel Rekap membuka expander pilihan rekap
-    btn_rekap = st.button("📥 EXCEL REKAP")
-
-if btn_rekap or 'rekap_open' in st.session_state:
-    st.session_state.rekap_open = True
-    with st.container():
-        st.markdown("---")
-        c1, c2, c3, c4 = st.columns([2,1,1,1])
-        bln = c1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
-        thn = c2.selectbox("Tahun", range(2024, 2031), index=2)
-        kat = c3.selectbox("Kategori", ["SEMUA", "PNS", "PPPK"])
-        if c4.button("🚀 GENERATE"):
-            df_p = fetch_cloud_data(URL_PNS)
-            df_pp = fetch_cloud_data(URL_PPPK)
-            df_all = pd.concat([df_p, df_pp])
-            t_col, n_col = df_all.columns[0], df_all.columns[1]
-            df_f = df_all[df_all[t_col].dt.year == thn].copy()
-            if bln != "SEPANJANG TAHUN": df_f = df_f[df_f[t_col].dt.month == LIST_BULAN.index(bln)]
-            if kat == "PNS": df_f = df_f[df_f[n_col].isin(MASTER_PNS)]
-            elif kat == "PPPK": df_f = df_f[df_f[n_col].isin(MASTER_PPPK)]
-            
-            if not df_f.empty:
-                df_f[t_col] = df_f[t_col].dt.strftime('%d/%m/%Y %H:%M')
-                out = BytesIO()
-                with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
-                st.download_button("💾 DOWNLOAD FILE", out.getvalue(), f"REKAP_{bln}.xlsx")
-            else: st.error("Data Kosong")
-        if st.button("Close ❌"): del st.session_state.rekap_open; st.rerun()
-    st.markdown("---")
-
-# --- 5. DASHBOARD ---
-df_pns = fetch_cloud_data(URL_PNS)
-df_pppk = fetch_cloud_data(URL_PPPK)
-df_all_data = pd.concat([df_pns, df_pppk])
-
-tab1, tab2, tab3 = st.tabs(["🌍 SEMUA", "👥 PNS", "👥 PPPK"])
-
-def draw_rows(df, master, tab_obj):
+def draw_rows(df, master_list, tab_obj, current_date):
     log = {}
     lim_in, lim_out = [datetime.strptime(x, "%H:%M").time() for x in ["09:00", "15:30"]]
-    tgl_target = st.session_state.get('d_tgl', datetime.now().date())
     
     if not df.empty:
         t_c = df.columns[0]
-        df_day = df[df[t_c].dt.date == tgl_target]
+        df_day = df[df[t_c].dt.date == current_date]
         for _, r in df_day.iterrows():
             n, jam = str(r.iloc[1]).strip(), r[t_c].time()
-            if n not in log: log[n] = {"m": jam.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if jam < lim_in else "TERLAMBAT"}
+            if n not in log: 
+                log[n] = {"m": jam.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if jam < lim_in else "TERLAMBAT"}
             if jam >= lim_out: log[n]["p"] = jam.strftime("%H:%M")
 
     with tab_obj:
-        for p in master:
+        for p in master_list:
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#EF4444"
             
@@ -199,6 +110,55 @@ def draw_rows(df, master, tab_obj):
                 st.rerun()
             st.markdown("<hr style='margin:5px 0; border-color:rgba(255,255,255,0.05)'>", unsafe_allow_html=True)
 
-draw_rows(df_all_data, list(DATABASE_INFO.keys()), tab1)
-draw_rows(df_pns, MASTER_PNS, tab2)
-draw_rows(df_pppk, MASTER_PPPK, tab3)
+# --- 5. MAIN UI ---
+st.markdown('<p class="header-text">MONITORING ABSENSI KPU HSS</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="wita-text">{datetime.now().strftime("%H:%M:%S")} WITA</p>', unsafe_allow_html=True)
+
+# Navigation
+col_lih, col_ref, col_rek = st.columns(3)
+with col_lih:
+    with st.expander(f"📅 Lihat Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
+        st.session_state.d_tgl = st.date_input("Pilih", datetime.now().date(), key="input_tgl")
+
+with col_ref:
+    if st.button("🔄 REFRESH"): st.rerun()
+
+with col_rek:
+    btn_rekap = st.button("📥 EXCEL REKAP")
+
+# Logika Panel Rekap
+if btn_rekap or 'rekap_open' in st.session_state:
+    st.session_state.rekap_open = True
+    st.markdown("---")
+    c1, c2, c3, c4 = st.columns([2,1,1,1])
+    bln = c1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
+    thn = c2.selectbox("Tahun", range(2024, 2031), index=2)
+    kat = c3.selectbox("Kategori", ["SEMUA", "PNS", "PPPK"])
+    if c4.button("🚀 GENERATE"):
+        df_all = pd.concat([fetch_cloud_data(URL_PNS), fetch_cloud_data(URL_PPPK)])
+        t_col, n_col = df_all.columns[0], df_all.columns[1]
+        df_f = df_all[df_all[t_col].dt.year == thn].copy()
+        if bln != "SEPANJANG TAHUN": df_f = df_f[df_f[t_col].dt.month == LIST_BULAN.index(bln)]
+        if kat == "PNS": df_f = df_f[df_f[n_col].isin(MASTER_PNS)]
+        elif kat == "PPPK": df_f = df_f[df_f[n_col].isin(MASTER_PPPK)]
+        
+        if not df_f.empty:
+            df_f[t_col] = df_f[t_col].dt.strftime('%d/%m/%Y %H:%M')
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
+            st.download_button("💾 DOWNLOAD FILE", out.getvalue(), f"REKAP_{bln}.xlsx")
+        else: st.error("Data Kosong")
+    if st.button("Close ❌"): del st.session_state.rekap_open; st.rerun()
+    st.markdown("---")
+
+# --- 6. RENDER DASHBOARD ---
+df_pns_raw = fetch_cloud_data(URL_PNS)
+df_pppk_raw = fetch_cloud_data(URL_PPPK)
+df_all_raw = pd.concat([df_pns_raw, df_pppk_raw])
+
+tab1, tab2, tab3 = st.tabs([f"🌍 SEMUA ({len(DATABASE_INFO)})", f"👥 PNS ({len(MASTER_PNS)})", f"👥 PPPK ({len(MASTER_PPPK)})"])
+
+tgl_target = st.session_state.get('d_tgl', datetime.now().date())
+draw_rows(df_all_raw, list(DATABASE_INFO.keys()), tab1, tgl_target)
+draw_rows(df_pns_raw, MASTER_PNS, tab2, tgl_target)
+draw_rows(df_pppk_raw, MASTER_PPPK, tab3, tgl_target)
