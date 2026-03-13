@@ -5,111 +5,54 @@ from io import StringIO, BytesIO
 from datetime import datetime
 import random
 
-# --- 1. CONFIGURATION & DARK THEME ---
+# --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="KPU HSS Presence Hub v16.0",
+    page_title="KPU HSS Presence Hub v16.1",
     page_icon="🏢",
     layout="wide"
 )
 
-# Mantra CSS untuk tampilan MIRIP GAMBAR (Hitam, Merah, Elegant)
+# Mantra CSS (Hitam, Merah, Elegant + Sidebar Fix)
 st.markdown("""
     <style>
-    /* Reset & Background */
-    .main {
-        background-color: #050505;
-        color: #E2E8F0;
-    }
+    .main { background-color: #050505; color: #E2E8F0; }
     
-    /* Center Clock & Date */
-    .time-header {
-        text-align: center;
-        padding: 40px 0;
-    }
-    .time-val {
-        font-size: 80px;
-        font-weight: bold;
-        color: white;
-        text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-        margin-bottom: 0px;
-    }
-    .date-val {
-        font-size: 24px;
-        color: #F59E0B;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-    }
+    /* Center Clock */
+    .time-header { text-align: center; padding: 20px 0; }
+    .time-val { font-size: 60px; font-weight: bold; color: white; margin-bottom: 0px; }
+    .date-val { font-size: 20px; color: #F59E0B; text-transform: uppercase; letter-spacing: 2px; }
 
     /* Tabs Styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        background-color: transparent;
-    }
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
     .stTabs [data-baseweb="tab"] {
         height: 45px;
         background-color: rgba(255, 255, 255, 0.05);
         border-radius: 5px 5px 0 0;
         color: #94A3B8;
-        padding: 0 20px;
     }
-    .stTabs [aria-selected="true"] {
-        background-color: #EF4444 !important; /* Merah sesuai gambar */
-        color: white !important;
-    }
+    .stTabs [aria-selected="true"] { background-color: #EF4444 !important; color: white !important; }
 
-    /* ROW CARD PEGAWAI (Mirip Gambar) */
-    .staff-row {
-        background-color: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        transition: 0.3s;
-    }
-    .staff-row:hover {
-        background-color: rgba(255, 255, 255, 0.07);
-        border-color: rgba(239, 68, 68, 0.3);
-    }
-
-    /* Labels */
-    .label-small {
-        font-size: 10px;
-        color: #64748B;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 5px;
-    }
-    .val-main {
-        font-size: 20px;
-        font-weight: 500;
-    }
-    .status-text {
-        font-size: 16px;
-        font-weight: bold;
-        text-align: right;
-    }
-
-    /* Button Hidden in Card */
-    .stButton>button {
-        background-color: #1E293B;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        height: 35px;
-        font-size: 12px;
-    }
+    /* Row Design */
+    .val-main { font-size: 18px; font-weight: 500; }
+    .label-small { font-size: 10px; color: #64748B; text-transform: uppercase; }
     
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #0A0A0A;
-        border-right: 1px solid #1A1A1A;
+    /* Status Colors */
+    .status-hadir { color: #10B981; font-weight: bold; }
+    .status-terlambat { color: #F59E0B; font-weight: bold; }
+    .status-alpa { color: #EF4444; font-weight: bold; }
+
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] { background-color: #0A0A0A; border-right: 1px solid #1A1A1A; }
+    .stDownloadButton>button {
+        background-color: #10B981 !important;
+        color: white !important;
+        width: 100%;
+        border-radius: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATABASE PEGAWAI (31 ORANG) ---
+# --- 2. DATABASE ---
 DATABASE_INFO = {
     "Suwanto": ["19720521 200912 1 001", "Sekretaris KPU"],
     "Wawan Setiawan": ["19860601 201012 1 004", "Kasubbag TP-Hupmas"],
@@ -151,7 +94,7 @@ LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei",
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-# --- 3. LOGIKA AMBIL DATA ---
+# --- 3. LOGIKA FETCH ---
 @st.cache_data(ttl=30)
 def fetch_cloud_data(url):
     try:
@@ -164,7 +107,38 @@ def fetch_cloud_data(url):
     except:
         return pd.DataFrame()
 
-# --- 4. HEADER (WAKTU & TANGGAL) ---
+df_pns = fetch_cloud_data(URL_PNS)
+df_pppk = fetch_cloud_data(URL_PPPK)
+df_all_data = pd.concat([df_pns, df_pppk])
+
+# --- 4. SIDEBAR (INI YANG TADI HILANG) ---
+with st.sidebar:
+    st.markdown("<h2 style='color:#F59E0B;'>📥 MENU REKAP</h2>", unsafe_allow_html=True)
+    st.divider()
+    rekap_bln = st.selectbox("Pilih Bulan Rekap", LIST_BULAN, index=datetime.now().month)
+    rekap_thn = st.selectbox("Pilih Tahun Rekap", range(2024, 2031), index=2)
+    rekap_kat = st.radio("Kategori Download", ["SEMUA", "PNS", "PPPK"])
+    
+    if st.button("🚀 PROSES DATA EXCEL"):
+        t_col = df_all_data.columns[0]
+        n_col = df_all_data.columns[1]
+        df_f = df_all_data[df_all_data[t_col].dt.year == rekap_thn].copy()
+        if rekap_bln != "SEPANJANG TAHUN":
+            df_f = df_f[df_f[t_col].dt.month == LIST_BULAN.index(rekap_bln)]
+        
+        if rekap_kat == "PNS": df_f = df_f[df_f[n_col].isin(MASTER_PNS)]
+        elif rekap_kat == "PPPK": df_f = df_f[df_f[n_col].isin(MASTER_PPPK)]
+
+        if not df_f.empty:
+            df_f[t_col] = df_f[t_col].dt.strftime('%d/%m/%Y %H:%M')
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as wr:
+                df_f.to_excel(wr, index=False)
+            st.download_button("💾 DOWNLOAD SEKARANG", out.getvalue(), f"REKAP_KPU_{rekap_bln}.xlsx")
+        else:
+            st.error("Data tidak ditemukan!")
+
+# --- 5. DASHBOARD ---
 st.markdown(f"""
     <div class="time-header">
         <p class="time-val">{datetime.now().strftime('%H:%M:%S')}</p>
@@ -172,93 +146,39 @@ st.markdown(f"""
     </div>
     """, unsafe_allow_html=True)
 
-# Filter Tanggal Dashboard
 tgl_dash = st.date_input("", datetime.now().date(), label_visibility="collapsed")
 
-# --- 5. TABS ---
-tab_all, tab_pns, tab_pppk = st.tabs([f"🌍 SEMUA ({len(DATABASE_INFO)})", f"👥 PNS ({len(MASTER_PNS)})", f"👥 PPPK ({len(MASTER_PPPK)})"])
+tab_all, tab_pns, tab_pppk = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 
-def render_staff_rows(df, master_list, tab_obj):
+def render_rows(df, master, tab):
     log = {}
-    limit_in = datetime.strptime("09:00", "%H:%M").time()
-    limit_out = datetime.strptime("15:30", "%H:%M").time()
-    
+    limit_in, limit_out = [datetime.strptime(x, "%H:%M").time() for x in ["09:00", "15:30"]]
     if not df.empty:
         t_col = df.columns[0]
         df_day = df[df[t_col].dt.date == tgl_dash]
         for _, r in df_day.iterrows():
             n, jam = str(r.iloc[1]).strip(), r[t_col].time()
-            # Logika Pagi/Sore (Tetap sesuai tujuan aplikasi)
             if n not in log:
                 log[n] = {"m": jam.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if jam < limit_in else "TERLAMBAT"}
-            if jam >= limit_out:
-                log[n]["p"] = jam.strftime("%H:%M")
+            if jam >= limit_out: log[n]["p"] = jam.strftime("%H:%M")
 
-    with tab_obj:
-        for p in master_list:
+    with tab:
+        for p in master:
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
-            status_color = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#EF4444"
+            st_cl = "status-hadir" if "HADIR" in d['k'] else "status-terlambat" if "TERLAMBAT" in d['k'] else "status-alpa"
             
-            # Memulai Baris Pegawai
-            with st.container():
-                col_nama, col_pagi, col_sore, col_ket, col_btn = st.columns([3, 1.5, 1.5, 2, 1])
-                
-                with col_nama:
-                    st.markdown(f"<p style='margin-bottom:0; color:#94A3B8; font-size:12px;'>👤 PEGAWAI</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p class='val-main'>{p}</p>", unsafe_allow_html=True)
-                
-                with col_pagi:
-                    st.markdown(f"<p class='label-small'>PAGI</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p class='val-main'>{d['m']}</p>", unsafe_allow_html=True)
-                
-                with col_sore:
-                    st.markdown(f"<p class='label-small'>SORE</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p class='val-main'>{d['p']}</p>", unsafe_allow_html=True)
-                
-                with col_ket:
-                    st.markdown(f"<p class='label-small' style='text-align:right'>KET</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p class='status-text' style='color:{status_color}'>{d['k']}</p>", unsafe_allow_html=True)
-                
-                with col_btn:
-                    if st.button("Update ✅", key=p):
-                        info = DATABASE_INFO.get(p)
-                        fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
-                        requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", 
-                                      data={"entry.960346359": p, "entry.468881973": info[0], "entry.159009649": info[1], "submit": "Submit"})
-                        st.rerun()
-                st.markdown("<hr style='margin:10px 0; border-color:rgba(255,255,255,0.05)'>", unsafe_allow_html=True)
+            c_nm, c_pg, c_sr, c_kt, c_bt = st.columns([3, 1.5, 1.5, 2, 1])
+            c_nm.markdown(f"<p class='label-small'>👤 PEGAWAI</p><p class='val-main'>{p}</p>", unsafe_allow_html=True)
+            c_pg.markdown(f"<p class='label-small'>PAGI</p><p class='val-main'>{d['m']}</p>", unsafe_allow_html=True)
+            c_sr.markdown(f"<p class='label-small'>SORE</p><p class='val-main'>{d['p']}</p>", unsafe_allow_html=True)
+            c_kt.markdown(f"<p class='label-small' style='text-align:right'>KET</p><p class='{st_cl}' style='text-align:right; font-size:16px;'>{d['k']}</p>", unsafe_allow_html=True)
+            if c_bt.button("Update ✅", key=p):
+                info = DATABASE_INFO.get(p)
+                fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
+                requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data={"entry.960346359":p,"entry.468881973":info[0],"entry.159009649":info[1],"submit":"Submit"})
+                st.rerun()
+            st.markdown("<hr style='margin:5px 0; border-color:rgba(255,255,255,0.05)'>", unsafe_allow_html=True)
 
-# Jalankan Dashboard
-df_pns = fetch_cloud_data(URL_PNS)
-df_pppk = fetch_cloud_data(URL_PPPK)
-df_all_data = pd.concat([df_pns, df_pppk])
-
-render_staff_rows(df_all_data, list(DATABASE_INFO.keys()), tab_all)
-render_staff_rows(df_pns, MASTER_PNS, tab_pns)
-render_staff_rows(df_pppk, MASTER_PPPK, tab_pppk)
-
-# --- 6. SIDEBAR REKAP ---
-with st.sidebar:
-    st.title("📥 EXCEL REKAP")
-    bln = st.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
-    thn = st.selectbox("Tahun", range(2024, 2031), index=2)
-    kat = st.radio("Download Kategori", ["SEMUA", "PNS", "PPPK"])
-    
-    if st.button("🚀 GENERATE FILE"):
-        t_col = df_all_data.columns[0]
-        n_col = df_all_data.columns[1]
-        df_f = df_all_data[df_all_data[t_col].dt.year == thn].copy()
-        if bln != "SEPANJANG TAHUN":
-            df_f = df_f[df_f[t_col].dt.month == LIST_BULAN.index(bln)]
-        
-        if kat == "PNS": df_f = df_f[df_f[n_col].isin(MASTER_PNS)]
-        elif kat == "PPPK": df_f = df_f[df_f[n_col].isin(MASTER_PPPK)]
-
-        if not df_f.empty:
-            df_f[t_col] = df_f[t_col].dt.strftime('%d/%m/%Y %H:%M')
-            out = BytesIO()
-            with pd.ExcelWriter(out, engine='openpyxl') as wr:
-                df_f.to_excel(wr, index=False)
-            st.download_button("💾 KLIK UNTUK SIMPAN", out.getvalue(), f"REKAP_{bln}_{thn}.xlsx")
-        else:
-            st.error("Data tidak ditemukan!")
+render_rows(df_all_data, list(DATABASE_INFO.keys()), tab_all)
+render_rows(df_pns, MASTER_PNS, tab_pns)
+render_rows(df_pppk, MASTER_PPPK, tab_pppk)
