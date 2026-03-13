@@ -8,70 +8,12 @@ from streamlit_javascript import st_javascript
 from streamlit_autorefresh import st_autorefresh
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.5", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.6", page_icon="🏢", layout="wide")
 
-# --- 2. AUTO-REFRESH DATA (SETIAP 2 MENIT) ---
-st_autorefresh(interval=2 * 60 * 1000, key="datarefresh")
+# --- 2. LINK DATABASE & MASTER DATA (WAJIB DI ATAS) ---
+URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
+URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-# --- 3. CSS HARD-CENTER & GLOWING HOVER ---
-st.markdown("""
-    <style>
-    .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
-    
-    /* Header & Jam Center */
-    .header-container { text-align: center; width: 100%; padding-top: 20px; }
-    .main-title { font-size: clamp(35px, 8vw, 70px) !important; font-weight: 900; color: white; margin: 0; }
-    .time-glow { font-size: clamp(40px, 10vw, 60px) !important; color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.7); font-weight: bold; margin-bottom: 20px; }
-
-    /* PAKSA SEMUA KE TENGAH (Navigasi & Tab) */
-    [data-testid="stHorizontalBlock"] {
-        justify-content: center !important;
-        display: flex !important;
-        gap: 10px !important;
-    }
-    
-    .stTabs [data-baseweb="tab-list"] {
-        display: flex !important;
-        justify-content: center !important;
-        width: 100% !important;
-        gap: 15px !important;
-    }
-
-    /* Tombol Navigasi Center */
-    div.stButton > button {
-        border-radius: 30px !important;
-        height: 50px !important;
-        font-weight: bold !important;
-        border: 1px solid rgba(251, 191, 36, 0.3) !important;
-        background: rgba(255,255,255,0.05) !important;
-        min-width: 150px;
-    }
-
-    /* HOVER MENYALA (FIXED) */
-    .staff-row-card {
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(251, 191, 36, 0.1);
-        border-radius: 12px;
-        padding: 10px 20px;
-        margin: 0 auto 10px auto;
-        max-width: 1100px;
-        transition: all 0.3s ease;
-    }
-    .staff-row-card:hover {
-        background: rgba(251, 191, 36, 0.15) !important;
-        border: 1px solid #fbbf24 !important;
-        box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
-        transform: scale(1.01);
-    }
-    
-    .val-nama { font-size: 26px !important; font-weight: 800; color: white; margin: 0; }
-    .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
-    
-    #MainMenu, footer, header {visibility: hidden;}
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 4. DATA LOGIC ---
 DATABASE_INFO = {
     "Suwanto": ["19720521 200912 1 001", "Sekretaris KPU"],
     "Wawan Setiawan": ["19860601 201012 1 004", "Kasubbag TP-Hupmas"],
@@ -106,7 +48,44 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN"]
 }
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
+LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
+# --- 3. AUTO-REFRESH & THEME ---
+st_autorefresh(interval=2 * 60 * 1000, key="datarefresh")
+
+st.markdown("""
+    <style>
+    .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
+    .header-container { text-align: center; width: 100%; padding-top: 20px; }
+    .main-title { font-size: clamp(35px, 8vw, 70px) !important; font-weight: 900; color: white; margin: 0; }
+    .time-glow { font-size: clamp(40px, 10vw, 60px) !important; color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.7); font-weight: bold; margin-bottom: 20px; }
+
+    /* PERMANENT CENTER FIX */
+    [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; gap: 10px !important; }
+    .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; width: 100% !important; gap: 15px !important; }
+    .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
+
+    /* HOVER GLOW CARD */
+    .staff-row-card {
+        background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(251, 191, 36, 0.1);
+        border-radius: 12px; padding: 10px 20px; margin: 0 auto 10px auto; max-width: 1100px; transition: all 0.3s ease;
+    }
+    .staff-row-card:hover { background: rgba(251, 191, 36, 0.15) !important; border: 1px solid #fbbf24 !important; box-shadow: 0 0 20px rgba(251, 191, 36, 0.4); transform: scale(1.01); }
+    
+    .val-nama { font-size: clamp(18px, 4vw, 26px) !important; font-weight: 800; color: white; margin: 0; }
+    .val-mini { font-size: clamp(14px, 3.5vw, 18px) !important; font-weight: 600; color: #fbbf24; }
+    .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; }
+    
+    .status-hadir { color: #10B981; font-weight: bold; }
+    .status-terlambat { color: #F59E0B; font-weight: bold; }
+    .status-alpa { color: #EF4444; font-weight: bold; }
+
+    div.stButton > button { border-radius: 30px !important; height: 50px !important; font-weight: bold !important; border: 1px solid rgba(251, 191, 36, 0.3) !important; background: rgba(255,255,255,0.05) !important; min-width: 150px; }
+    #MainMenu, footer, header {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 4. DATA FETCHING FUNCTION ---
 @st.cache_data(ttl=10)
 def fetch_data(url):
     try:
@@ -117,7 +96,7 @@ def fetch_data(url):
         return df.dropna(subset=[t_c]).sort_values(by=t_c)
     except: return pd.DataFrame()
 
-# --- 5. JAM REALTIME (JAWASCRIPT INJECTION) ---
+# --- 5. HEADER & REALTIME CLOCK ---
 st.markdown('<div class="header-container"><p class="main-title">MONITORING ABSENSI KPU HSS</p></div>', unsafe_allow_html=True)
 st_javascript("""
     setInterval(function() {
@@ -132,7 +111,7 @@ st_javascript("""
 """)
 st.markdown('<div style="text-align:center;"><p class="time-glow">--:--:-- WITA</p></div>', unsafe_allow_html=True)
 
-# --- 6. NAVIGASI (CENTERED) ---
+# --- 6. NAVIGATION (CENTERED) ---
 c1, c2, c3 = st.columns([1.5, 1, 1.5])
 with c1:
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
@@ -142,7 +121,7 @@ with c2:
 with c3:
     if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# --- 7. DASHBOARD RENDER ---
+# --- 7. DASHBOARD LOGIC ---
 def draw_rows(df, master, tab_obj, target_date, tab_name):
     log = {}
     l_in, l_out = [datetime.strptime(x, "%H:%M").time() for x in ["09:00", "15:30"]]
@@ -173,10 +152,14 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
                 st.cache_data.clear(); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-df_pns, df_pppk = fetch_data(URL_PNS), fetch_data(URL_PPPK)
+# --- EXECUTION ---
+df_pns = fetch_data(URL_PNS)
+df_pppk = fetch_data(URL_PPPK)
 df_all = pd.concat([df_pns, df_pppk])
-t1, t2, t3 = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
+
+tab1, tab2, tab3 = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 tgl = st.session_state.get('d_tgl', datetime.now().date())
-draw_rows(df_all, list(DATABASE_INFO.keys()), t1, tgl, "all")
-draw_rows(df_pns, MASTER_PNS, t2, tgl, "pns")
-draw_rows(df_pppk, MASTER_PPPK, t3, tgl, "pppk")
+
+draw_rows(df_all, list(DATABASE_INFO.keys()), tab1, tgl, "all")
+draw_rows(df_pns, MASTER_PNS, tab2, tgl, "pns")
+draw_rows(df_pppk, MASTER_PPPK, tab3, tgl, "pppk")
