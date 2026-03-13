@@ -5,28 +5,76 @@ from io import StringIO, BytesIO
 from datetime import datetime
 import random
 
-# --- CONFIGURATION WEB ---
+# --- 1. CONFIGURATION & PREMIUM THEME (Custom CSS) ---
 st.set_page_config(
-    page_title="KPU HSS Presence Hub",
-    page_icon="📅",
-    layout="wide"
+    page_title="KPU HSS Presence Hub v12.2",
+    page_icon="📊",
+    layout="wide", # Pakai wide mode agar lega di desktop
+    initial_sidebar_state="expanded"
 )
 
-# Custom CSS agar tampilan di HP lebih cakep & tombol membulat
+# Mantra Sakti CSS untuk mengubah Streamlit jadi Premium Navy & Amber
 st.markdown("""
     <style>
-    .main { background-color: #0F172A; }
-    .stButton>button {
-        border-radius: 20px;
-        font-weight: bold;
+    /* Background Utama */
+    .main {
+        background-color: #0F172A;
+        color: white;
     }
-    .status-hadir { color: #10B981; font-weight: bold; }
-    .status-terlambat { color: #F59E0B; font-weight: bold; }
-    .status-alpa { color: #EF4444; font-weight: bold; }
+    
+    /* Font Global */
+    html, body, [class*="css"]  {
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    /* Styling Header */
+    h1 {
+        color: #F8FAFC !important;
+        font-weight: 800 !important;
+        text-align: center;
+        padding-bottom: 0px !important;
+    }
+    h3 {
+        color: #F59E0B !important; /* Warna Amber untuk Jam */
+        text-align: center;
+        margin-top: 0px !important;
+    }
+
+    /* Styling Expander (Kartu Pegawai) -> Ini Kunci Keren-nya */
+    div[data-testid="stExpander"] {
+        background-color: rgba(30, 41, 59, 0.5) !important; /* Transparan ala Glass */
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 15px !important;
+        margin-bottom: 10px !important;
+        transition: transform 0.2s;
+    }
+    div[data-testid="stExpander"]:hover {
+        transform: translateY(-3px); /* Efek melayang saat di-hover */
+        border-color: rgba(245, 158, 11, 0.4) !important;
+    }
+    
+    /* Styling Tombol Standar */
+    .stButton>button {
+        width: 100%;
+        border-radius: 20px !important;
+        font-weight: bold !important;
+        transition: 0.3s;
+    }
+    
+    /* Warna Status (Hadir, Terlambat, Alpa) */
+    .status-hadir { color: #10B981 !important; font-weight: bold; }
+    .status-terlambat { color: #F59E0B !important; font-weight: bold; }
+    .status-alpa { color: #EF4444 !important; font-weight: bold; }
+
+    /* Menyembunyikan elemen standar Streamlit agar lebih bersih */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATABASE PEGAWAI (31 ORANG) ---
+# --- 2. DATABASE PEGAWAI (31 ORANG) ---
+# [KODE DATABASE SAMA SEPERTI SEBELUMNYA, TIDAK DIUBAH]
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas"],
@@ -65,86 +113,94 @@ MASTER_PNS = list(DATABASE_INFO.keys())[:17]
 MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
+# Link Database (Tidak Berubah)
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-# --- FUNGSI AMBIL DATA ---
-def fetch_data(url):
+# --- 3. LOGIKA AMBIL DATA (Sama) ---
+@st.cache_data(ttl=60) # Cache 1 menit agar tidak crash server Google
+def fetch_cloud_data(url):
     try:
-        response = requests.get(f"{url}&nc={random.random()}")
+        response = requests.get(f"{url}&nc={random.random()}", timeout=10)
         df = pd.read_csv(StringIO(response.text))
         df.columns = df.columns.str.strip()
         t_col = df.columns[0]
+        # Fix Error Datetime Accessor (Anti-Crash)
         df[t_col] = pd.to_datetime(df[t_col], dayfirst=True, errors='coerce')
         return df.dropna(subset=[t_col]).sort_values(by=t_col)
-    except:
-        return pd.DataFrame()
+    except Exception as e:
+        return pd.DataFrame() # Kembalikan DF kosong jika error
 
-# --- HEADER ---
-st.title("📊 MONITORING ABSENSI KPU HSS")
-st.subheader(f"Waktu: {datetime.now().strftime('%H:%M:%S')} WITA")
-
-# --- SIDEBAR: REKAP EXCEL ---
-st.sidebar.header("📥 Download Rekap Excel")
-bln_pilih = st.sidebar.selectbox("Pilih Bulan", LIST_BULAN)
-thn_pilih = st.sidebar.selectbox("Pilih Tahun", range(2024, 2031), index=2) # Default 2026
-
-kat_pegawai = st.sidebar.selectbox("Kategori", ["SEMUA PEGAWAI", "PNS", "PPPK"])
-nama_list = ["-- Semua --"]
-if kat_pegawai == "PNS": nama_list += MASTER_PNS
-elif kat_pegawai == "PPPK": nama_list += MASTER_PPPK
-nama_pilih = st.sidebar.selectbox("Pilih Nama (Opsional)", nama_list)
-
-if st.sidebar.button("Generate Rekap"):
-    df_pns = fetch_data(URL_PNS)
-    df_pppk = fetch_data(URL_PPPK)
-    df_all = pd.concat([df_pns, df_pppk])
+# --- 4. UI SIDEBAR (Premium Sidebar) ---
+st.sidebar.title("📥 Rekapitulasi Excel")
+with st.sidebar.expander("⚙️ Advanced Filter", expanded=True):
+    bln_p = st.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
+    thn_p = st.selectbox("Tahun", range(2024, 2031), index=2) # Default 2026
     
-    # Filter Waktu
-    t_col = df_all.columns[0]
-    df_res = df_all[df_all[t_col].dt.year == thn_pilih].copy()
-    if bln_pilih != "SEPANJANG TAHUN":
-        m_idx = LIST_BULAN.index(bln_pilih)
-        df_res = df_res[df_res[t_col].dt.month == m_idx]
+    kat_p = st.radio("Kategori Pegawai", ["SEMUA", "PNS", "PPPK"])
     
-    # Filter Pegawai
-    nama_col = df_all.columns[1]
-    if kat_pegawai == "PNS": df_res = df_res[df_res[nama_col].isin(MASTER_PNS)]
-    elif kat_pegawai == "PPPK": df_res = df_res[df_res[nama_col].isin(MASTER_PPPK)]
-    
-    if nama_pilih != "-- Semua --":
-        df_res = df_res[df_res[nama_col] == nama_pilih]
+    nama_options = ["-- Semua Pegawai di Kategori --"]
+    if kat_p == "PNS": nama_options += MASTER_PNS
+    elif kat_p == "PPPK": nama_options += MASTER_PPPK
+    nama_p = st.selectbox("Pilih Nama (Opsional)", nama_options)
 
-    if not df_res.empty:
-        df_res[t_col] = df_res[t_col].dt.strftime('%d/%m/%Y %H:%M')
-        # Buat File Excel di Memory
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_res.to_excel(writer, index=False)
+    # Tombol Generate yang Premium
+    if st.button("🚀 SIAPKAN FILE EXCEL"):
+        df_pns = fetch_cloud_data(URL_PNS)
+        df_pppk = fetch_cloud_data(URL_PPPK)
+        df_all = pd.concat([df_pns, df_pppk])
+        t_col = df_all.columns[0]
+        nama_col = df_all.columns[1]
+
+        # Filter Waktu
+        df_f = df_all[df_all[t_col].dt.year == thn_p].copy()
+        if bln_p != "SEPANJANG TAHUN":
+            m_idx = LIST_BULAN.index(bln_p)
+            df_f = df_f[df_f[t_col].dt.month == m_idx]
+
+        # Filter Pegawai
+        if kat_p == "PNS": df_f = df_f[df_f[nama_col].isin(MASTER_PNS)]
+        elif kat_p == "PPPK": df_f = df_f[df_f[nama_col].isin(MASTER_PPPK)]
         
-        st.sidebar.download_button(
-            label="💾 Klik untuk Simpan Excel",
-            data=output.getvalue(),
-            file_name=f"REKAP_KPU_{bln_pilih}_{thn_pilih}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    else:
-        st.sidebar.error("Data tidak ditemukan untuk filter ini.")
+        if nama_p != "-- Semua Pegawai di Kategori --":
+            df_f = df_f[df_f[nama_col] == nama_p]
 
-# --- DASHBOARD HARIAN ---
-st.divider()
-tgl_dash = st.date_input("📅 Lihat Pantauan Tanggal:", datetime.now().date())
+        if not df_f.empty:
+            df_f[t_col] = df_f[t_col].dt.strftime('%d/%m/%Y %H:%M')
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df_f.to_excel(writer, index=False)
+            
+            # Tombol Download Hijau Mantap
+            st.download_button(
+                label="✅ KLIK UNTUK DOWNLOAD (Folder Downloads HP)",
+                data=output.getvalue(),
+                file_name=f"REKAP_ABSEN_{kat_p}_{bln_p}_{thn_p}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        else:
+            st.error("Data tidak ditemukan untuk kriteria tersebut.")
 
-tab1, tab2 = st.tabs(["👥 PNS", "👥 PPPK"])
+# --- 5. DASHBOARD HARIAN (Premium Dashboard ala HP) ---
+st.header("MONITORING ABSENSI KPU HSS")
+st.subheader(f"{datetime.now().strftime('%H:%M:%S')} WITA")
 
-def show_dashboard(df, master_list, tab_obj):
+st.divider() # Garis pembatas clean
+
+# Filter Tanggal Dashboard yang simple
+tgl_d = st.date_input("📅 Pantau Tanggal Dashboard:", datetime.now().date())
+
+# Tabs dengan gaya membulat
+tab1, tab2 = st.tabs(["👥 STATUS PNS", "👥 STATUS PPPK"])
+
+# Fungsi untuk merender daftar pegawai dalam bentuk "Kartu" (Mobile Friendly)
+def render_staff_cards(df, master, tab_obj):
     log = {}
-    t_limit = datetime.strptime("09:00", "%H:%M").time()
-    t_pulang = datetime.strptime("15:30", "%H:%M").time()
+    t_limit, t_pulang = [datetime.strptime(x, "%H:%M").time() for x in ["09:00", "15:30"]]
     
     if not df.empty:
         t_col = df.columns[0]
-        df_day = df[df[t_col].dt.date == tgl_dash]
+        df_day = df[df[t_col].dt.date == tgl_d]
         for _, r in df_day.iterrows():
             n, jam = str(r.iloc[1]).strip(), r[t_col].time()
             if n not in log:
@@ -153,21 +209,35 @@ def show_dashboard(df, master_list, tab_obj):
                 log[n]["p"] = jam.strftime("%H:%M")
 
     with tab_obj:
-        for p in master_list:
+        # Loop Pegawai - Membuat kartu individual
+        for idx, p in enumerate(master, 1):
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
-            with st.expander(f"{p} | {d['k']}"):
-                col1, col2 = st.columns(2)
-                col1.metric("Jam Pagi", d['m'])
-                col2.metric("Jam Sore", d['p'])
+            
+            # Menentukan warna status
+            status_style = "status-hadir" if "HADIR" in d['k'] else "status-terlambat" if "TERLAMBAT" in d['k'] else "status-alpa"
+            
+            # MEMBUAT KARTU DENGAN EXPANDER (Ini yang bikin Mobile Friendly)
+            with st.expander(f"{p}"):
+                # Susunan Kolom di dalam kartu
+                c1, c2, c3 = st.columns([1, 1, 1.5]) # Kolom 3 sedikit lebih lebar untuk status
                 
-                # Fitur Update manual via Web
-                if st.button(f"Update ✅", key=p):
+                c1.metric(label="Jam Pagi", value=d['m'])
+                c2.metric(label="Jam Sore", value=d['p'])
+                c3.markdown(f"Status:<br><span class='{status_style}'>{d['k']}</span>", unsafe_allow_html=True)
+                
+                # Tombol Update di dalam kartu (sedikit dikecilkan agar responsif)
+                if st.button(f"Update ✅ {p[:10]}...", key=p): # key=p agar tombol unik
                     info = DATABASE_INFO.get(p)
                     fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
                     payload = {"entry.960346359": p, "entry.468881973": info[0], "entry.159009649": info[1], "submit": "Submit"}
-                    requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data=payload)
-                    st.success(f"Absen {p} berhasil di-update!")
-                    st.rerun()
+                    
+                    try:
+                        requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data=payload, timeout=5)
+                        st.success(f"Absen {p} berhasil di-update!")
+                        st.rerun() # Refresh dashboard
+                    except:
+                        st.error("Gagal terhubung ke Cloud!")
 
-show_dashboard(fetch_data(URL_PNS), MASTER_PNS, tab1)
-show_dashboard(fetch_data(URL_PPPK), MASTER_PPPK, tab2)
+# Menampilkan data
+render_staff_cards(fetch_cloud_data(URL_PNS), MASTER_PNS, tab1)
+render_staff_cards(fetch_cloud_data(URL_PPPK), MASTER_PPPK, tab2)
