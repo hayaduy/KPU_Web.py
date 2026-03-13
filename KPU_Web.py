@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v16.11", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.12", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA & LINKS ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -50,7 +50,7 @@ DATABASE_INFO = {
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. LUXURY CSS (MAROON, ORANGE, BOXED) ---
+# --- 3. LUXURY CSS (CENTERED & BOXED) ---
 st.markdown("""
     <style>
     .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
@@ -58,15 +58,15 @@ st.markdown("""
     .main-title { font-size: clamp(30px, 7vw, 60px) !important; font-weight: 900; color: white; margin: 0; }
     .time-glow { font-size: clamp(35px, 9vw, 60px) !important; color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.7); font-weight: bold; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
 
-    /* CENTER ALIGNMENT */
+    /* CENTER ALIGNMENT FOR NAV & TABS */
     [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; }
     .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; gap: 10px !important; }
     .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
 
-    /* STAFF ROW CARD */
+    /* STAFF ROW CARD & NAME BOX */
     .staff-row-card {
         background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(251, 191, 36, 0.1);
-        border-radius: 12px; padding: 6px 15px; margin: 0 auto 6px auto; max-width: 1100px;
+        border-radius: 12px; padding: 6px 15px; margin: 0 auto 6px auto; max-width: 1050px;
         transition: all 0.3s ease; display: flex; align-items: center;
     }
     .staff-row-card:hover {
@@ -130,12 +130,12 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
                 st.cache_data.clear(); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. EXECUTION ---
+# --- 5. EXECUTION HEADER ---
 st_autorefresh(interval=2 * 60 * 1000, key="datarefresh")
 st.markdown('<div class="header-container"><p class="main-title">MONITORING ABSENSI KPU HSS</p></div>', unsafe_allow_html=True)
 clock_fragment()
 
-# --- 6. NAVIGATION ---
+# --- 6. NAVIGATION CENTERED ---
 c1, c2, c3 = st.columns([1.5, 1, 1.5])
 with c1:
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
@@ -146,7 +146,7 @@ with c3:
     if st.button("📥 EXCEL REKAP"):
         st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# PANEL REKAP (FITUR FILTER NAMA SUDAH BALIK)
+# PANEL REKAP (ALL FEATURES RESTORED)
 if st.session_state.get('show_rekap', False):
     st.markdown("<div style='background-color:rgba(0,0,0,0.6); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-bottom:10px;'>", unsafe_allow_html=True)
     st.write("### ADVANCED REKAP EXCEL")
@@ -156,7 +156,6 @@ if st.session_state.get('show_rekap', False):
     
     r3, r4 = st.columns(2)
     kat_r = r3.selectbox("Kategori", ["SEMUA PEGAWAI", "PNS", "PPPK"])
-    # DINAMIS: List Nama balik lagi di sini
     nm_opts = ["-- Semua --"]
     if kat_r == "PNS": nm_opts += MASTER_PNS
     elif kat_r == "PPPK": nm_opts += MASTER_PPPK
@@ -168,7 +167,6 @@ if st.session_state.get('show_rekap', False):
         df_f = df_all_f[df_all_f[t_c].dt.year == thn_r].copy()
         if bln_r != "SEPANJANG TAHUN": df_f = df_f[df_f[t_c].dt.month == LIST_BULAN.index(bln_r)]
         
-        # Logika Filter
         if kat_r == "PNS": df_f = df_f[df_f[n_c].isin(MASTER_PNS)]
         elif kat_r == "PPPK": df_f = df_f[df_f[n_c].isin(MASTER_PPPK)]
         if "-- Semua" not in nm_r: df_f = df_f[df_f[n_c].str.contains(nm_r, case=False, na=False)]
@@ -177,14 +175,22 @@ if st.session_state.get('show_rekap', False):
             df_f[t_c] = df_f[t_c].dt.strftime('%d/%m/%Y %H:%M')
             out = BytesIO()
             with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
-            st.download_button("💾 DOWNLOAD FILE", out.getvalue(), f"REKAP_{kat_r}_{bln_r}.xlsx", use_container_width=True)
+            # MOBILE FIX: Mime type & width
+            st.download_button(
+                label="💾 DOWNLOAD SEKARANG", 
+                data=out.getvalue(), 
+                file_name=f"REKAP_{kat_r}_{bln_r}.xlsx", 
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
         else: st.error("Data Kosong")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- 7. DASHBOARD ---
+# --- 7. DASHBOARD RENDER ---
 df_all = pd.concat([fetch_data(URL_PNS), fetch_data(URL_PPPK)])
 t1, t2, t3 = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 tgl = st.session_state.get('d_tgl', datetime.now().date())
+
 draw_rows(df_all, list(DATABASE_INFO.keys()), t1, tgl, "all")
 draw_rows(fetch_data(URL_PNS), MASTER_PNS, t2, tgl, "pns")
 draw_rows(fetch_data(URL_PPPK), MASTER_PPPK, t3, tgl, "pppk")
