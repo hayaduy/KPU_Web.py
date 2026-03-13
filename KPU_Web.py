@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.19", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.20", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -37,7 +37,7 @@ DATABASE_INFO = {
     "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA"],
     "Basuki Rahmat": ["197705222024211007", "PENATA KELOLA PEMILU AHLI PERTAMA"],
     "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA"],
-    "Saldoz Yedi": ["198008112025211019", "OPERATOR LAYANAN OPERASIONAL"],
+    "Saldoz Yedi": ["198008112025211019", "OPERATOR LAYARAN OPERASIONAL"],
     "Mastoni Ridani": ["199106012025211018", "OPERATOR LAYANAN OPERASIONAL"],
     "Suriadi": ["199803022025211005", "PENGELOLA UMUM OPERASIONAL"],
     "Ami Aspihani": ["198204042025211031", "OPERATOR LAYANAN OPERASIONAL"],
@@ -50,7 +50,7 @@ DATABASE_INFO = {
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. THEME CSS (NEON WRAP PERMANENT) ---
+# --- 3. THEME CSS (NEON WRAP PRECISION) ---
 st.markdown("""
     <style>
     .stApp {
@@ -59,44 +59,47 @@ st.markdown("""
     }
     
     .header-container { text-align: center; width: 100%; padding-top: 10px; }
-    .main-title { font-size: clamp(30px, 7vw, 60px) !important; font-weight: 900; color: white !important; margin: 0; }
-    .time-glow { font-size: clamp(35px, 9vw, 60px) !important; color: #fbbf24 !important; text-shadow: 0 0 30px rgba(251, 191, 36, 0.9) !important; font-weight: bold; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
+    .main-title { font-size: clamp(24px, 7vw, 55px) !important; font-weight: 900; color: white !important; margin: 0; }
+    .time-glow { font-size: clamp(30px, 9vw, 55px) !important; color: #fbbf24 !important; text-shadow: 0 0 30px rgba(251, 191, 36, 0.9) !important; font-weight: bold; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
 
     /* CENTER ALIGNMENT */
     [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; }
-    .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; width: 100% !important; gap: 10px !important; }
+    .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; gap: 10px !important; }
     .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
 
-    /* FIX: NEON BOX WRAPPER - Menghilangkan border melayang */
+    /* FIXED NEON BOX WRAPPER */
+    /* Menempel langsung pada konten, tidak melayang */
     .staff-row-card {
         background: rgba(0, 0, 0, 0.6) !important; 
-        /* Pakai box-shadow & border langsung di div utama */
         border: 2px solid #fbbf24 !important; 
-        box-shadow: 0 0 15px rgba(251, 191, 36, 0.3), inset 0 0 5px rgba(251, 191, 36, 0.2) !important;
-        border-radius: 60px !important; /* Lonjong sempurna */
-        padding: 12px 30px !important; 
-        margin: 0 auto 15px auto !important; 
-        max-width: 1150px;
-        display: flex; 
+        box-shadow: 0 0 10px rgba(251, 191, 36, 0.3) !important;
+        border-radius: 40px !important; 
+        padding: 8px 25px !important; 
+        margin-bottom: 8px !important;
+        max-width: 1100px;
+        margin-left: auto;
+        margin-right: auto;
+        display: flex;
         align-items: center;
-        transition: 0.3s;
+        transition: 0.3s ease-in-out;
     }
     
     .staff-row-card:hover {
-        box-shadow: 0 0 25px rgba(251, 191, 36, 0.7) !important;
-        background: rgba(251, 191, 36, 0.1) !important;
+        box-shadow: 0 0 20px rgba(251, 191, 36, 0.7) !important;
+        background: rgba(251, 191, 36, 0.05) !important;
     }
 
-    .val-nama { font-size: clamp(16px, 4vw, 24px) !important; font-weight: 900; color: white; margin: 0; }
-    .label-micro { color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 0; font-weight: bold; }
-    .val-mini { color: #fbbf24; font-weight: bold; font-size: 18px; margin: 0; }
+    .val-nama { font-size: clamp(14px, 4vw, 22px) !important; font-weight: 900; color: white; margin: 0; }
+    .label-micro { color: #94a3b8; font-size: 8px; text-transform: uppercase; margin: 0; font-weight: bold; }
+    .val-mini { color: #fbbf24; font-weight: bold; font-size: 16px; margin: 0; }
     
     div.stButton > button { 
-        border-radius: 25px !important; 
+        border-radius: 20px !important; 
         background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(251, 191, 36, 0.5) !important;
+        border: 1px solid #fbbf24 !important;
         color: white !important;
-        height: 40px !important;
+        height: 35px !important;
+        font-size: 12px !important;
     }
 
     #MainMenu, footer, header {visibility: hidden;}
@@ -138,14 +141,14 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#EF4444"
             
-            # WRAPPER NEON
+            # KOTAK NEON SEBAGAI WRAPPER UTAMA BARIS
             st.markdown(f'<div class="staff-row-card">', unsafe_allow_html=True)
             cn, cp, cs, ck, cb = st.columns([3.5, 1.2, 1.2, 2.5, 1.2])
             with cn:
                 st.markdown(f'<div><p class="label-micro">PEGAWAI</p><p class="val-nama">{p}</p></div>', unsafe_allow_html=True)
             cp.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
             cs.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
-            ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:16px;'>{d['k']}</p>", unsafe_allow_html=True)
+            ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:14px;'>{d['k']}</p>", unsafe_allow_html=True)
             if cb.button("Update ✅", key=f"u_{tab_name}_{p}"):
                 info = DATABASE_INFO.get(p)
                 fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
@@ -168,7 +171,7 @@ with c2:
 with c3:
     if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# PANEL REKAP (FILTER NAMA DI SINI)
+# PANEL REKAP (FILTER NAMA TETAP DI SINI)
 if st.session_state.get('show_rekap', False):
     st.markdown("<div style='background-color:rgba(0,0,0,0.8); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-bottom:15px;'>", unsafe_allow_html=True)
     st.write("### ADVANCED REKAP EXCEL")
