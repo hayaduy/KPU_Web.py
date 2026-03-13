@@ -2,13 +2,13 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import StringIO, BytesIO
-from datetime import datetime, timedelta
+from datetime import datetime
 import random
 from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.7", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.8", page_icon="🏢", layout="wide")
 
 # --- 2. MASTER DATA & LINKS ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -48,39 +48,68 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN"]
 }
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
-LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. STYLING (MAROON, ORANGE, CENTER, HOVER) ---
+# --- 3. LUXURY CSS (MAROON & BOLD STRUCTURE) ---
 st.markdown("""
     <style>
     .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
-    .header-container { text-align: center; width: 100%; padding-top: 20px; }
-    .main-title { font-size: clamp(35px, 8vw, 70px) !important; font-weight: 900; color: white; margin: 0; }
-    .time-glow { font-size: clamp(40px, 10vw, 65px) !important; color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.7); font-weight: bold; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
+    .header-container { text-align: center; width: 100%; padding-top: 10px; }
+    .main-title { font-size: clamp(30px, 7vw, 60px) !important; font-weight: 900; color: white; margin: 0; }
+    .time-glow { font-size: clamp(35px, 9vw, 60px) !important; color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.7); font-weight: bold; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
 
-    /* CENTER ALIGN EVERYTHING */
-    [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; gap: 10px !important; }
-    .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; width: 100% !important; gap: 15px !important; }
+    /* CENTER ALIGNMENT FOR NAV & TABS */
+    [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; }
+    .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; gap: 10px !important; }
     .stTabs [aria-selected="true"] { background-color: #8B0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
 
-    /* HOVER GLOW CARD */
+    /* STAFF ROW CARD */
     .staff-row-card {
-        background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(251, 191, 36, 0.15);
-        border-radius: 12px; padding: 10px 20px; margin: 0 auto 10px auto; max-width: 1100px; transition: all 0.3s ease;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(251, 191, 36, 0.1);
+        border-radius: 12px;
+        padding: 6px 15px;
+        margin: 0 auto 6px auto;
+        max-width: 1050px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
     }
-    .staff-row-card:hover { background: rgba(251, 191, 36, 0.15) !important; border: 1px solid #fbbf24 !important; box-shadow: 0 0 20px rgba(251, 191, 36, 0.4); transform: scale(1.01); }
+    .staff-row-card:hover {
+        background: rgba(251, 191, 36, 0.12) !important;
+        border: 1px solid #fbbf24 !important;
+        box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+        transform: scale(1.005);
+    }
+
+    /* WRAPPER KOLOM NAMA (Ini yang diminta) */
+    .name-container {
+        background: rgba(255, 255, 255, 0.04);
+        border-left: 4px solid #fbbf24; /* Aksen garis oranye di samping nama */
+        border-radius: 6px;
+        padding: 5px 12px;
+        min-height: 50px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
     
-    .val-nama { font-size: clamp(20px, 5vw, 28px) !important; font-weight: 800; color: white; margin: 0; }
-    .val-mini { font-size: clamp(14px, 3.5vw, 18px) !important; font-weight: 600; color: #fbbf24; }
-    .label-micro { color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 0; }
+    .val-nama { font-size: clamp(16px, 4vw, 22px) !important; font-weight: 800; color: white; margin: 0; line-height: 1.1; }
+    .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; }
+    .val-mini { font-size: 16px; font-weight: 600; color: #fbbf24; margin: 0; }
     
-    div.stButton > button { border-radius: 30px !important; height: 50px !important; font-weight: bold !important; border: 1px solid rgba(251, 191, 36, 0.3) !important; background: rgba(255,255,255,0.05) !important; min-width: 150px; }
+    /* Tombol Style */
+    div.stButton > button { 
+        border-radius: 20px !important; font-weight: bold !important; 
+        border: 1px solid rgba(251, 191, 36, 0.3) !important;
+        background: rgba(255,255,255,0.05) !important;
+    }
+
     #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. DATA LOGIC ---
-@st.cache_data(ttl=10)
+# --- 4. FUNCTIONS ---
+@st.cache_data(ttl=15)
 def fetch_data(url):
     try:
         res = requests.get(f"{url}&nc={random.random()}", timeout=10)
@@ -90,30 +119,12 @@ def fetch_data(url):
         return df.dropna(subset=[t_c]).sort_values(by=t_c)
     except: return pd.DataFrame()
 
-# --- 5. REALTIME CLOCK FRAGMENT (THE FIX) ---
 @st.fragment(run_every="1s")
 def clock_fragment():
     tz = pytz.timezone('Asia/Makassar')
     now = datetime.now(tz)
     st.markdown(f'<div style="text-align:center;"><p class="time-glow">{now.strftime("%H:%M:%S")} WITA</p></div>', unsafe_allow_html=True)
 
-# Auto-Refresh data setiap 2 menit
-st_autorefresh(interval=2 * 60 * 1000, key="datarefresh")
-
-# --- 6. UI HEADER & NAVIGATION ---
-st.markdown('<div class="header-container"><p class="main-title">MONITORING ABSENSI KPU HSS</p></div>', unsafe_allow_html=True)
-clock_fragment()
-
-c1, c2, c3 = st.columns([1.5, 1, 1.5])
-with c1:
-    with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
-        st.session_state.d_tgl = st.date_input("Pilih", datetime.now().date(), key="input_tgl")
-with c2:
-    if st.button("🔄 REFRESH"): st.cache_data.clear(); st.rerun()
-with c3:
-    if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
-
-# --- 7. DASHBOARD RENDER ---
 def draw_rows(df, master, tab_obj, target_date, tab_name):
     log = {}
     l_in, l_out = [datetime.strptime(x, "%H:%M").time() for x in ["09:00", "15:30"]]
@@ -131,12 +142,23 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
         for p in master:
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#EF4444"
+            
             st.markdown(f'<div class="staff-row-card">', unsafe_allow_html=True)
-            cn, cp, cs, ck, cb = st.columns([3.5, 1, 1, 2, 1.2])
-            cn.markdown(f"<p class='label-micro'>👤 PEGAWAI</p><p class='val-nama'>{p}</p>", unsafe_allow_html=True)
+            # Layout Kolom: Nama mendapat porsi lebih besar dan dibungkus Box
+            cn, cp, cs, ck, cb = st.columns([4, 1.2, 1.2, 2, 1.2])
+            
+            with cn:
+                st.markdown(f"""
+                    <div class="name-container">
+                        <p class="label-micro">👤 PEGAWAI</p>
+                        <p class="val-nama">{p}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
             cp.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
             cs.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
-            ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold;'>{d['k']}</p>", unsafe_allow_html=True)
+            ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:15px;'>{d['k']}</p>", unsafe_allow_html=True)
+            
             if cb.button("Update ✅", key=f"u_{tab_name}_{p}"):
                 info = DATABASE_INFO.get(p)
                 fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
@@ -144,10 +166,25 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
                 st.cache_data.clear(); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-df_pns, df_pppk = fetch_data(URL_PNS), fetch_data(URL_PPPK)
-df_all = pd.concat([df_pns, df_pppk])
+# --- 5. EXECUTION ---
+st_autorefresh(interval=2 * 60 * 1000, key="datarefresh")
+st.markdown('<div class="header-container"><p class="main-title">MONITORING ABSENSI KPU HSS</p></div>', unsafe_allow_html=True)
+clock_fragment()
+
+# Navigasi Center
+c1, c2, c3 = st.columns([1.5, 1, 1.5])
+with c1:
+    with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
+        st.session_state.d_tgl = st.date_input("Pilih", datetime.now().date(), key="input_tgl")
+with c2:
+    if st.button("🔄 REFRESH"): st.cache_data.clear(); st.rerun()
+with c3:
+    if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
+
+df_all = pd.concat([fetch_data(URL_PNS), fetch_data(URL_PPPK)])
 t1, t2, t3 = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 tgl = st.session_state.get('d_tgl', datetime.now().date())
+
 draw_rows(df_all, list(DATABASE_INFO.keys()), t1, tgl, "all")
-draw_rows(df_pns, MASTER_PNS, t2, tgl, "pns")
-draw_rows(df_pppk, MASTER_PPPK, t3, tgl, "pppk")
+draw_rows(fetch_data(URL_PNS), MASTER_PNS, t2, tgl, "pns")
+draw_rows(fetch_data(URL_PPPK), MASTER_PPPK, t3, tgl, "pppk")
