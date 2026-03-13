@@ -4,70 +4,66 @@ import requests
 from io import StringIO, BytesIO
 from datetime import datetime
 import random
+import time
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.1", page_icon="🏢", layout="wide")
+st.set_page_config(
+    page_title="KPU HSS Presence Hub v18.2",
+    page_icon="🏢",
+    layout="wide"
+)
 
-# --- 2. THEME CUSTOMIZATION (MAROON, GLOWING, COMPACT, & FULL-WIDTH) ---
+# --- 2. LUXURY CSS (MOBILE RESPONSIVE) ---
 st.markdown("""
     <style>
     /* Background & Global */
     .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
     
     /* Header Container */
-    .header-container { text-align: center; padding: 20px 0 10px 0; margin-bottom: 10px; }
-    .main-title { font-size: 65px !important; font-weight: 900; color: white; margin: 0; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); line-height: 1; }
+    .header-container { text-align: center; padding: 10px 0; }
     
-    /* Jam Real-time ala JS (Anti-Refresh) */
-    #clock-display { font-size: 55px !important; color: #fbbf24; text-shadow: 0 0 25px rgba(251, 191, 36, 0.6); font-weight: bold; font-family: 'JetBrains Mono', monospace; }
+    /* Responsive Title & Clock */
+    .main-title { font-size: clamp(30px, 8vw, 65px) !important; font-weight: 900; color: white; margin: 0; line-height: 1; }
+    .time-glow { font-size: clamp(35px, 10vw, 60px) !important; color: #fbbf24; text-shadow: 0 0 20px rgba(251, 191, 36, 0.6); font-weight: bold; font-family: 'JetBrains Mono', monospace; }
 
-    /* Tombol Navigasi SEJAJAR & FULL WIDTH */
+    /* Navigasi Buttons Responsive */
     div.stButton > button {
         width: 100% !important;
-        height: 55px !important;
         border-radius: 30px !important;
         font-weight: bold !important;
-        font-size: 16px !important;
         border: 1px solid rgba(251, 191, 36, 0.3) !important;
         background-color: rgba(255, 255, 255, 0.05) !important;
         color: white !important;
-        transition: 0.3s;
-    }
-    div.stButton > button:hover {
-        border-color: #fbbf24 !important;
-        box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
-        background-color: rgba(251, 191, 36, 0.1) !important;
     }
 
-    /* Tab Styling Maroon */
-    .stTabs [data-baseweb="tab-list"] { justify-content: center; gap: 10px; }
-    .stTabs [aria-selected="true"] { background-color: #8b0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
-
-    /* BARIS PEGAWAI - RAPAT & CENTERED */
+    /* BARIS PEGAWAI - AUTO CENTER & NARROW */
     .staff-row-card {
         background: rgba(0, 0, 0, 0.3);
         border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-        padding: 5px 15px;
-        margin: 0 auto 4px auto;
-        max-width: 1100px;
+        border-radius: 10px;
+        padding: 8px 15px;
+        margin: 0 auto 6px auto;
+        max-width: 1000px;
         transition: 0.3s ease;
     }
     .staff-row-card:hover {
-        background: rgba(251, 191, 36, 0.08) !important;
+        background: rgba(251, 191, 36, 0.1) !important;
         border: 1px solid #fbbf24 !important;
-        box-shadow: 0 0 12px rgba(251, 191, 36, 0.2);
     }
     
-    .val-nama { font-size: 26px !important; font-weight: 800; color: white; margin: 0; line-height: 1; }
+    /* Font Size untuk HP */
+    .val-nama { font-size: clamp(16px, 4vw, 26px) !important; font-weight: 800; color: white; margin: 0; }
+    .val-mini { font-size: clamp(14px, 3vw, 18px) !important; font-weight: 600; color: #fbbf24; margin: 0; }
     .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; }
-    .val-mini { font-size: 16px; font-weight: 600; color: #fbbf24; margin: 0; }
     
+    /* Status Colors */
     .status-hadir { color: #10B981; font-weight: bold; }
     .status-terlambat { color: #F59E0B; font-weight: bold; }
     .status-alpa { color: #EF4444; font-weight: bold; }
 
+    /* Hilangkan Spasi Standar Streamlit */
     #MainMenu, footer, header {visibility: hidden;}
+    .block-container { padding-top: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -142,7 +138,7 @@ def draw_rows(df, master_list, tab_obj, target_date, tab_name):
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr = "status-hadir" if "HADIR" in d['k'] else "status-terlambat" if "TERLAMBAT" in d['k'] else "status-alpa"
             st.markdown(f'<div class="staff-row-card">', unsafe_allow_html=True)
-            c_nm, c_pg, c_sr, c_kt, c_bt = st.columns([4, 1.2, 1.2, 2, 1.2])
+            c_nm, c_pg, c_sr, c_kt, c_bt = st.columns([4, 1.2, 1.2, 2.5, 1.2])
             c_nm.markdown(f"<p class='label-micro'>👤 PEGAWAI</p><p class='val-nama'>{p}</p>", unsafe_allow_html=True)
             c_pg.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
             c_sr.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
@@ -155,10 +151,11 @@ def draw_rows(df, master_list, tab_obj, target_date, tab_name):
             st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 5. MAIN UI ---
+# JAM REAL-TIME FIX (Tanpa rerun yang merusak layout)
 st.markdown("""
     <div class="header-container">
         <p class="main-title">MONITORING ABSENSI KPU HSS</p>
-        <p id="clock-display">--:--:-- WITA</p>
+        <p id="clock-display" class="time-glow">00:00:00 WITA</p>
     </div>
     <script>
         function updateClock() {
@@ -166,7 +163,8 @@ st.markdown("""
             const hours = String(now.getHours()).padStart(2, '0');
             const minutes = String(now.getMinutes()).padStart(2, '0');
             const seconds = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('clock-display').innerText = hours + ':' + minutes + ':' + seconds + ' WITA';
+            const clock = document.getElementById('clock-display');
+            if(clock) clock.innerText = hours + ':' + minutes + ':' + seconds + ' WITA';
         }
         setInterval(updateClock, 1000);
         updateClock();
@@ -176,15 +174,16 @@ st.markdown("""
 # NAVIGASI SEJAJAR FULL WIDTH
 col_lih, col_ref, col_rek = st.columns([1,1,1])
 with col_lih:
-    with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}", expanded=False):
+    with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
         st.session_state.d_tgl = st.date_input("Pilih", datetime.now().date(), key="input_tgl")
 with col_ref:
     if st.button("🔄 REFRESH DATA"): st.cache_data.clear(); st.rerun()
 with col_rek:
     if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
+# Advanced Rekap Panel
 if st.session_state.get('show_rekap', False):
-    st.markdown("<div style='background-color:rgba(0,0,0,0.6); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-top:10px;'>", unsafe_allow_html=True)
+    st.markdown("<div style='background-color:rgba(0,0,0,0.6); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-bottom:10px;'>", unsafe_allow_html=True)
     r1, r2 = st.columns(2); bln = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month); thn = r2.selectbox("Tahun", range(2024, 2031), index=2)
     r3, r4 = st.columns(2); kat_r = r3.selectbox("Kategori", ["SEMUA PEGAWAI", "PNS", "PPPK"])
     nm_opts = ["-- Semua --"]; nm_opts += MASTER_PNS if kat_r == "PNS" else MASTER_PPPK if kat_r == "PPPK" else []
@@ -201,13 +200,14 @@ if st.session_state.get('show_rekap', False):
             df_f[t_c] = df_f[t_c].dt.strftime('%d/%m/%Y %H:%M')
             out = BytesIO()
             with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
-            st.download_button("💾 DOWNLOAD HASIL", out.getvalue(), f"REKAP_{kat_r}_{bln}.xlsx", use_container_width=True)
+            st.download_button("💾 KLIK DOWNLOAD", out.getvalue(), f"REKAP_{bln}.xlsx", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --- 6. DASHBOARD ---
 df_all_raw = pd.concat([fetch_cloud_data(URL_PNS), fetch_cloud_data(URL_PPPK)])
 tab1, tab2, tab3 = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 tgl_target = st.session_state.get('d_tgl', datetime.now().date())
+
 draw_rows(df_all_raw, list(DATABASE_INFO.keys()), tab1, tgl_target, "all")
 draw_rows(fetch_cloud_data(URL_PNS), MASTER_PNS, tab2, tgl_target, "pns")
 draw_rows(fetch_cloud_data(URL_PPPK), MASTER_PPPK, tab3, tgl_target, "pppk")
