@@ -8,11 +8,31 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.25", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.26", page_icon="🏢", layout="wide")
 
-# --- 2. MASTER DATA ---
+# --- 2. MASTER DATA & HOLIDAYS 2026 ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
+
+# Daftar Libur Nasional Indonesia 2026 (Prediksi/Umum)
+LIBUR_NASIONAL_2026 = {
+    "2026-01-01": "TAHUN BARU 2026",
+    "2026-01-19": "ISRA MI'RAJ",
+    "2026-02-17": "TAHUN BARU IMLEK",
+    "2026-03-20": "HARI RAYA NYEPI",
+    "2026-03-20": "IDUL FITRI 1447 H",
+    "2026-03-21": "IDUL FITRI 1447 H",
+    "2026-04-03": "WAFAT YESUS KRISTUS",
+    "2026-05-01": "HARI BURUH",
+    "2026-05-14": "KENAIKAN YESUS KRISTUS",
+    "2026-05-22": "HARI RAYA WAISAK",
+    "2026-05-27": "IDUL ADHA 1447 H",
+    "2026-06-01": "HARI LAHIR PANCASILA",
+    "2026-06-16": "TAHUN BARU ISLAM 1448 H",
+    "2026-08-17": "HARI KEMERDEKAAN RI",
+    "2026-08-25": "MAULID NABI MUHAMMAD",
+    "2026-12-25": "HARI RAYA NATAL"
+}
 
 DATABASE_INFO = {
     "Suwanto": ["19720521 200912 1 001", "Sekretaris KPU"],
@@ -50,72 +70,27 @@ DATABASE_INFO = {
 MASTER_PNS, MASTER_PPPK = list(DATABASE_INFO.keys())[:17], list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. LUXURY CSS (WHITE NEON ROW) ---
+# --- 3. LUXURY CSS (WHITE NEON ROW - NO CHANGES) ---
 st.markdown("""
     <style>
-    .stApp {
-        background: linear-gradient(180deg, #800000 0%, #1a0208 50%, #000000 85%, #ff8c00 100%) !important;
-        background-attachment: fixed !important;
-    }
-    
+    .stApp { background: linear-gradient(180deg, #800000 0%, #1a0208 50%, #000000 85%, #ff8c00 100%) !important; background-attachment: fixed !important; }
     .header-container { text-align: center; padding-top: 10px; }
     .main-title { font-size: clamp(24px, 7vw, 55px) !important; font-weight: 900; color: white !important; margin: 0; }
     .time-glow { font-size: clamp(30px, 9vw, 55px) !important; color: #fbbf24 !important; text-shadow: 0 0 30px rgba(251, 191, 36, 0.9) !important; font-weight: bold; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
-
-    /* Center Alignment */
     [data-testid="stHorizontalBlock"] { justify-content: center !important; display: flex !important; }
     .stTabs [data-baseweb="tab-list"] { display: flex !important; justify-content: center !important; gap: 10px !important; }
-
-    /* ABSOLUTE WHITE NEON ROW - Menempel pada konten, Bentuk Kotak Panjang */
-    .neon-row {
-        background: rgba(0, 0, 0, 0.6) !important;
-        border: 2px solid white !important; /* Garis Menyala Putih */
-        box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), inset 0 0 5px rgba(255, 255, 255, 0.2) !important; /* Efek Cahaya Putih */
-        border-radius: 8px !important; /* Bentuk Kotak Panjang, bukan kapsul */
-        padding: 12px 25px !important;
-        margin-bottom: 10px !important;
-        max-width: 1100px;
-        margin-left: auto;
-        margin-right: auto;
-        transition: 0.3s ease;
-    }
-    .neon-row:hover {
-        box-shadow: 0 0 25px rgba(255, 255, 255, 0.8) !important;
-        background: rgba(255, 255, 255, 0.05) !important;
-    }
-
-    /* Override Streamlit Column Spacing for Neon Internal */
-    [data-testid="column"] {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        padding: 0 !important;
-    }
-
+    .neon-row { background: rgba(0, 0, 0, 0.6) !important; border: 2px solid white !important; box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), inset 0 0 5px rgba(255, 255, 255, 0.2) !important; border-radius: 8px !important; padding: 12px 25px !important; margin-bottom: 10px !important; max-width: 1100px; margin-left: auto; margin-right: auto; transition: 0.3s ease; }
+    .neon-row:hover { box-shadow: 0 0 25px rgba(255, 255, 255, 0.8) !important; background: rgba(255, 255, 255, 0.05) !important; }
+    [data-testid="column"] { display: flex; flex-direction: column; justify-content: center; padding: 0 !important; }
     .val-nama { font-size: clamp(16px, 4vw, 24px) !important; font-weight: 900; color: white; margin: 0; line-height: 1.2; }
     .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; font-weight: bold; }
     .val-mini { color: #fbbf24; font-weight: bold; font-size: 18px; margin: 0; }
-    
-    /* Tombol Style Internal */
-    div.stButton > button {
-        border-radius: 8px !important;
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid white !important;
-        color: white !important;
-        height: 40px !important;
-        width: 100% !important;
-    }
-    div.stButton > button:hover {
-        background: rgba(255, 255, 255, 0.1) !important;
-        border: 1px solid #fbbf24 !important;
-        color: #fbbf24 !important;
-    }
-
+    div.stButton > button { border-radius: 8px !important; background: rgba(255,255,255,0.05) !important; border: 1px solid white !important; color: white !important; height: 40px !important; width: 100% !important; }
     #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. DATA LOGIC ---
+# --- 4. FUNCTIONS ---
 @st.cache_data(ttl=15)
 def fetch_data(url):
     try:
@@ -135,6 +110,12 @@ def clock_fragment():
 def draw_rows(df, master, tab_obj, target_date, tab_name):
     log = {}
     l_in, l_out = [datetime.strptime(x, "%H:%M").time() for x in ["09:00", "15:30"]]
+    
+    # LOGIC HOLIDAY / WEEKEND
+    date_str = target_date.strftime("%Y-%m-%d")
+    is_weekend = target_date.weekday() >= 5 # 5=Sabtu, 6=Minggu
+    holiday_name = LIBUR_NASIONAL_2026.get(date_str)
+    
     if not df.empty:
         t_c, n_c = df.columns[0], df.columns[1]
         df_day = df[df[t_c].dt.date == target_date].copy()
@@ -145,20 +126,25 @@ def draw_rows(df, master, tab_obj, target_date, tab_name):
                     jam = r[t_c].time()
                     if p not in log: log[p] = {"m": jam.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if jam < l_in else "TERLAMBAT"}
                     if jam >= l_out: log[p]["p"] = jam.strftime("%H:%M")
+    
     with tab_obj:
         for p in master:
-            d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
-            clr = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#EF4444"
+            # Override status jika hari libur tapi tidak ada record absen
+            if p not in log:
+                if holiday_name: d = {"m": "--:--", "p": "--:--", "k": f"LIBUR ({holiday_name})"}
+                elif is_weekend: d = {"m": "--:--", "p": "--:--", "k": "LIBUR (AKHIR PEKAN)"}
+                else: d = {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"}
+            else:
+                d = log[p]
+                
+            clr = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#3b82f6" if "LIBUR" in d['k'] else "#EF4444"
             
-            # KOTAK BARIS KOTAK PANJANG WHITE NEON - Menempel mati pada konten
             st.markdown('<div class="neon-row">', unsafe_allow_html=True)
             cn, cp, cs, ck, cb = st.columns([3.5, 1.2, 1.2, 2.5, 1.3])
-            
             cn.markdown(f"<p class='label-micro'>👤 PEGAWAI</p><p class='val-nama'>{p}</p>", unsafe_allow_html=True)
             cp.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
             cs.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
-            ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:16px;'>{d['k']}</p>", unsafe_allow_html=True)
-            
+            ck.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p style='color:{clr}; text-align:right; font-weight:bold; font-size:14px;'>{d['k']}</p>", unsafe_allow_html=True)
             with cb:
                 if st.button("Update ✅", key=f"u_{tab_name}_{p}"):
                     info = DATABASE_INFO.get(p)
@@ -172,7 +158,6 @@ st_autorefresh(interval=2 * 60 * 1000, key="datarefresh")
 st.markdown('<div class="header-container"><p class="main-title">MONITORING ABSENSI KPU HSS</p></div>', unsafe_allow_html=True)
 clock_fragment()
 
-# Navigation Row
 c1, c2, c3 = st.columns([1.5, 1, 1.5])
 with c1:
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
@@ -182,10 +167,8 @@ with c2:
 with c3:
     if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# Rekap Panel
 if st.session_state.get('show_rekap', False):
     st.markdown("<div style='background-color:rgba(0,0,0,0.8); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-bottom:15px;'>", unsafe_allow_html=True)
-    st.write("### ADVANCED REKAP EXCEL")
     r1, r2 = st.columns(2)
     bln_r = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
     thn_r = r2.selectbox("Tahun", range(2024, 2031), index=2)
@@ -193,7 +176,6 @@ if st.session_state.get('show_rekap', False):
     kat_r = r3.selectbox("Kategori", ["SEMUA PEGAWAI", "PNS", "PPPK"])
     nm_opts = ["-- Semua --"] + (MASTER_PNS if kat_r=="PNS" else MASTER_PPPK if kat_r=="PPPK" else list(DATABASE_INFO.keys()))
     nm_r = r4.selectbox("Pilih Nama Spesifik", nm_opts)
-    
     if st.button("🚀 GENERATE EXCEL"):
         df_all_f = pd.concat([fetch_data(URL_PNS), fetch_data(URL_PPPK)])
         t_c, n_c = df_all_f.columns[0], df_all_f.columns[1]
