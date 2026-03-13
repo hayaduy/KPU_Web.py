@@ -6,21 +6,39 @@ from datetime import datetime
 import random
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v16.7", page_icon="🏢", layout="wide")
+st.set_page_config(
+    page_title="KPU HSS Presence Hub v16.8",
+    page_icon="🏢",
+    layout="wide"
+)
 
-# --- 2. CUSTOM CSS (ELEGANT & SYMMETRICAL) ---
+# --- 2. LUXURY GLASS CSS (MAROON & AMBER ACCENT) ---
+# Mantra CSS untuk mengubah Streamlit jadi Premium & Rapat
 st.markdown("""
     <style>
-    /* Background & Font */
-    .main { background-color: #050505; color: #E2E8F0; }
+    /* Background Premium Gradient (Bukan Hitam Pekat) */
+    .main {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #f8fafc;
+    }
     
+    /* Font Global */
+    html, body, [class*="css"]  {
+        font-family: 'Segoe UI', sans-serif;
+    }
+
     /* Header Elegan dengan Glow */
     .header-container {
         text-align: center;
-        padding: 30px 0 10px 0;
+        padding: 25px 0 5px 0;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        margin-bottom: 25px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     .main-title {
-        font-size: 50px;
+        font-size: 45px;
         font-weight: 850;
         letter-spacing: -1px;
         background: linear-gradient(to bottom, #ffffff 0%, #94a3b8 100%);
@@ -29,63 +47,78 @@ st.markdown("""
         margin-bottom: 0px;
     }
     .time-glow {
-        font-size: 32px;
+        font-size: 30px;
         font-family: 'JetBrains Mono', monospace;
-        color: #F59E0B;
-        text-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
-        margin-top: -10px;
+        color: #F59E0B; /* Amber/Oranye tipis KPU */
+        text-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        margin-top: -8px;
         font-weight: bold;
     }
 
-    /* Container untuk Tombol Navigasi agar Center */
-    .nav-container {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-        margin-bottom: 30px;
-    }
-
-    /* Styling Tombol Navigasi */
+    /* Styling Tombol Navigasi (Center & Symmetrical) */
     div.stButton > button {
-        border-radius: 12px !important;
-        height: 45px !important;
-        padding: 0 30px !important;
+        border-radius: 30px !important;
+        height: 50px !important;
+        padding: 0 40px !important;
         font-weight: bold !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
+        font-size: 16px !important;
+        border: none !important;
         transition: 0.3s;
     }
     
-    /* Warna Tombol Navigasi (Tetap dipertahankan sesuai permintaan sebelumnya) */
-    div[data-testid="column"]:nth-child(1) button { background-color: #1e293b !important; color: white !important; } /* Lihat Tgl */
-    div[data-testid="column"]:nth-child(2) button { background-color: #D97706 !important; color: white !important; } /* Refresh */
-    div[data-testid="column"]:nth-child(3) button { background-color: #1D4ED8 !important; color: white !important; } /* Excel */
+    /* Warna Tombol Navigasi (Sesuai Permintaan) */
+    div[data-testid="column"]:nth-child(2) button { background-color: #334155 !important; color: white !important; } /* Lihat Tgl */
+    div[data-testid="column"]:nth-child(3) button { background-color: #D97706 !important; color: white !important; } /* Refresh */
+    div[data-testid="column"]:nth-child(4) button { background-color: #1D4ED8 !important; color: white !important; } /* Excel */
 
-    /* Tab Styling - Center Aligned */
+    /* Tab Styling - Minimalis Center */
     .stTabs [data-baseweb="tab-list"] {
         display: flex;
-        justify-content: center; /* Meratakan Tab ke Tengah */
+        justify-content: center;
         background-color: transparent;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
         gap: 15px;
+        margin-bottom: 15px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: rgba(255,255,255,0.03);
-        border-radius: 10px 10px 0 0;
-        padding: 10px 25px;
+        background-color: rgba(255,255,255,0.02);
+        border-radius: 12px 12px 0 0;
+        padding: 8px 20px;
         color: #64748b;
         border: none;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #EF4444 !important;
+        background-color: #8B0000 !important; /* Maroon Accent sesuai permintaan */
         color: white !important;
         font-weight: bold;
     }
 
-    /* Status & Row */
-    .status-hadir { color: #10B981; font-weight: bold; }
-    .status-terlambat { color: #F59E0B; font-weight: bold; }
-    .status-alpa { color: #EF4444; font-weight: bold; }
-    hr { border-color: rgba(255,255,255,0.05); margin: 5px 0; }
+    /* GLASS CARD & RAPAT (Ini Kuncinya) */
+    .staff-row-card {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 12px !important;
+        padding: 8px 15px !important; /* Rapatkan padding internal */
+        margin-bottom: 8px !important; /* Kurangi margin antar baris */
+        transition: 0.2s;
+    }
+    .staff-row-card:hover {
+        border-color: rgba(245, 158, 11, 0.3) !important; /* Oranye tipis hover */
+        background: rgba(255, 255, 255, 0.06) !important;
+    }
+    
+    /* Text Styling Rapat */
+    .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; }
+    .val-mini { font-size: 15px; font-weight: 500; color: white; margin: 0; }
+    
+    /* Warna Status */
+    .status-hadir { color: #10B981; font-weight: bold; font-size: 14px; }
+    .status-terlambat { color: #F59E0B; font-weight: bold; font-size: 14px; }
+    .status-alpa { color: #EF4444; font-weight: bold; font-size: 14px; }
+    
+    /* Menghilangkan elemen standar Streamlit agar lebih bersih */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -131,7 +164,7 @@ LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei",
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-# --- 4. LOGIC ---
+# --- 4. DATA LOGIC ---
 @st.cache_data(ttl=15)
 def fetch_cloud_data(url):
     try:
@@ -164,22 +197,25 @@ def draw_rows(df, master_list, tab_obj, target_date, tab_name):
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr_class = "status-hadir" if "HADIR" in d['k'] else "status-terlambat" if "TERLAMBAT" in d['k'] else "status-alpa"
             
-            # Row Layout
-            c_nm, c_pg, c_sr, c_kt, c_bt = st.columns([3, 1.5, 1.5, 2, 1.2])
-            c_nm.markdown(f"<p style='color:#64748B; font-size:10px; margin:0'>👤 PEGAWAI</p><p style='font-size:16px;'>{p}</p>", unsafe_allow_html=True)
-            c_pg.markdown(f"<p style='color:#64748B; font-size:10px; margin:0'>PAGI</p><p style='font-size:16px;'>{d['m']}</p>", unsafe_allow_html=True)
-            c_sr.markdown(f"<p style='color:#64748B; font-size:10px; margin:0'>SORE</p><p style='font-size:16px;'>{d['p']}</p>", unsafe_allow_html=True)
-            c_kt.markdown(f"<p style='color:#64748B; font-size:10px; margin:0; text-align:right'>KET</p><p class='{clr_class}' style='text-align:right; font-size:15px;'>{d['k']}</p>", unsafe_allow_html=True)
+            # Row Layout - Rapat & Center
+            # Tambahkan container div untuk styling rapat
+            st.markdown('<div class="staff-row-card">', unsafe_allow_html=True)
+            c_nm, c_pg, c_sr, c_kt, c_bt = st.columns([3, 1.3, 1.3, 2, 1])
             
-            if c_bt.button("Update ✅", key=f"upd_{tab_name}_{p}"):
+            c_nm.markdown(f"<p class='label-micro'>👤 PEGAWAI</p><p class='val-mini'>{p}</p>", unsafe_allow_html=True)
+            c_pg.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
+            c_sr.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
+            c_kt.markdown(f"<p class='label-micro' style='text-align:right'>KET</p><p class='{clr_class}' style='text-align:right'>{d['k']}</p>", unsafe_allow_html=True)
+            
+            if c_bt.button("Update ✅", key=f"upd_{tab_name}_{p}", use_container_width=True):
                 info = DATABASE_INFO.get(p)
                 fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
                 requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data={"entry.960346359":p,"entry.468881973":info[0],"entry.159009649":info[1],"submit":"Submit"})
                 st.cache_data.clear(); st.rerun()
-            st.markdown("<hr>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 5. MAIN UI ---
-# Judul & Jam Center
+# Judul & Jam Center (Glass Header)
 st.markdown("""
     <div class="header-container">
         <p class="main-title">MONITORING ABSENSI KPU HSS</p>
@@ -188,26 +224,25 @@ st.markdown("""
     """.format(datetime.now().strftime('%H:%M:%S')), unsafe_allow_html=True)
 
 # Tombol Navigasi Center
-# Kita gunakan container kosong di pinggir untuk mematikan sisa ruang agar tombol berjejer di tengah
-_, col_lih, col_ref, col_rek, _ = st.columns([1, 2, 2, 2, 1])
+_, col_lih, col_ref, col_rek, _ = st.columns([0.5, 2, 2, 2, 0.5])
 
 with col_lih:
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
         st.session_state.d_tgl = st.date_input("Pilih", datetime.now().date(), key="input_tgl")
 with col_ref:
-    if st.button("🔄 REFRESH DATA"): st.cache_data.clear(); st.rerun()
+    if st.button("🔄 REFRESH DATA", use_container_width=True): st.cache_data.clear(); st.rerun()
 with col_rek:
-    if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
+    if st.button("📥 EXCEL REKAP", use_container_width=True): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# Advanced Rekap Panel
+# Advanced Rekap Panel (Glass Panel)
 if st.session_state.get('show_rekap', False):
-    st.markdown("<div style='background-color:#111827; padding:20px; border-radius:15px; border:1px solid #374151; margin-bottom:20px;'>", unsafe_allow_html=True)
+    st.markdown("<div style='background-color:rgba(17, 24, 39, 0.7); padding:15px; border-radius:15px; border:1px solid rgba(255,255,255,0.05); margin-bottom:15px;'>", unsafe_allow_html=True)
     st.markdown("<p style='color:#F59E0B; text-align:center; font-weight:bold;'>ADVANCED REKAP EXCEL</p>", unsafe_allow_html=True)
     r1, r2, r3 = st.columns(3)
     bln = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
     thn = r2.selectbox("Tahun", range(2024, 2031), index=2)
     kat = r3.selectbox("Kategori", ["SEMUA", "PNS", "PPPK"])
-    if st.button("🚀 GENERATE EXCEL"):
+    if st.button("🚀 GENERATE EXCEL", use_container_width=True):
         df_all = pd.concat([fetch_cloud_data(URL_PNS), fetch_cloud_data(URL_PPPK)])
         t_c = df_all.columns[0]
         df_f = df_all[df_all[t_c].dt.year == thn].copy()
@@ -223,10 +258,11 @@ df_pns_raw = fetch_cloud_data(URL_PNS)
 df_pppk_raw = fetch_cloud_data(URL_PPPK)
 df_all_raw = pd.concat([df_pns_raw, df_pppk_raw])
 
-# Tabs Merata Tengah
+# Tabs Merata Tengah (Maroon Accent)
 tab_all, tab_pns, tab_pppk = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 tgl_target = st.session_state.get('d_tgl', datetime.now().date())
 
+# Render Baris PNS/PPPK (Rapat & Center)
 draw_rows(df_all_raw, list(DATABASE_INFO.keys()), tab_all, tgl_target, "all")
 draw_rows(df_pns_raw, MASTER_PNS, tab_pns, tgl_target, "pns")
 draw_rows(df_pppk_raw, MASTER_PPPK, tab_pppk, tgl_target, "pppk")
