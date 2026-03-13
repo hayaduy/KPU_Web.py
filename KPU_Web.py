@@ -7,122 +7,69 @@ import random
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="KPU HSS Presence Hub v16.8",
+    page_title="KPU HSS Presence Hub v16.9",
     page_icon="🏢",
     layout="wide"
 )
 
-# --- 2. LUXURY GLASS CSS (MAROON & AMBER ACCENT) ---
-# Mantra CSS untuk mengubah Streamlit jadi Premium & Rapat
+# --- 2. LUXURY GLASS CSS (COMPACT & CENTERED) ---
 st.markdown("""
     <style>
-    /* Background Premium Gradient (Bukan Hitam Pekat) */
     .main {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         color: #f8fafc;
     }
     
-    /* Font Global */
-    html, body, [class*="css"]  {
-        font-family: 'Segoe UI', sans-serif;
-    }
-
-    /* Header Elegan dengan Glow */
+    /* Header Container */
     .header-container {
         text-align: center;
-        padding: 25px 0 5px 0;
+        padding: 20px 0 5px 0;
         background: rgba(255, 255, 255, 0.03);
         border-radius: 20px;
         border: 1px solid rgba(255, 255, 255, 0.05);
-        margin-bottom: 25px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        margin-bottom: 20px;
     }
-    .main-title {
-        font-size: 45px;
-        font-weight: 850;
-        letter-spacing: -1px;
-        background: linear-gradient(to bottom, #ffffff 0%, #94a3b8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0px;
-    }
-    .time-glow {
-        font-size: 30px;
-        font-family: 'JetBrains Mono', monospace;
-        color: #F59E0B; /* Amber/Oranye tipis KPU */
-        text-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
-        margin-top: -8px;
-        font-weight: bold;
-    }
+    .main-title { font-size: 40px; font-weight: 850; letter-spacing: -1px; margin-bottom: 0; color: white; }
+    .time-glow { font-size: 28px; color: #F59E0B; text-shadow: 0 0 15px rgba(245, 158, 11, 0.4); font-weight: bold; }
 
-    /* Styling Tombol Navigasi (Center & Symmetrical) */
-    div.stButton > button {
-        border-radius: 30px !important;
-        height: 50px !important;
-        padding: 0 40px !important;
-        font-weight: bold !important;
-        font-size: 16px !important;
-        border: none !important;
-        transition: 0.3s;
-    }
-    
-    /* Warna Tombol Navigasi (Sesuai Permintaan) */
-    div[data-testid="column"]:nth-child(2) button { background-color: #334155 !important; color: white !important; } /* Lihat Tgl */
-    div[data-testid="column"]:nth-child(3) button { background-color: #D97706 !important; color: white !important; } /* Refresh */
-    div[data-testid="column"]:nth-child(4) button { background-color: #1D4ED8 !important; color: white !important; } /* Excel */
+    /* Nav & Tab Center */
+    .stTabs [data-baseweb="tab-list"] { justify-content: center; gap: 10px; }
+    .stTabs [aria-selected="true"] { background-color: #8B0000 !important; color: white !important; }
 
-    /* Tab Styling - Minimalis Center */
-    .stTabs [data-baseweb="tab-list"] {
-        display: flex;
-        justify-content: center;
-        background-color: transparent;
-        gap: 15px;
-        margin-bottom: 15px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: rgba(255,255,255,0.02);
-        border-radius: 12px 12px 0 0;
-        padding: 8px 20px;
-        color: #64748b;
-        border: none;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #8B0000 !important; /* Maroon Accent sesuai permintaan */
-        color: white !important;
-        font-weight: bold;
-    }
-
-    /* GLASS CARD & RAPAT (Ini Kuncinya) */
+    /* GLASS CARD - COMPACT & NARROW */
+    /* Kita batasi lebar maksimal agar tidak terlalu mojok */
     .staff-row-card {
         background: rgba(255, 255, 255, 0.03) !important;
         border: 1px solid rgba(255, 255, 255, 0.05) !important;
-        border-radius: 12px !important;
-        padding: 8px 15px !important; /* Rapatkan padding internal */
-        margin-bottom: 8px !important; /* Kurangi margin antar baris */
+        border-radius: 10px !important;
+        padding: 6px 15px !important; /* Padding lebih kecil agar rapat */
+        margin: 0 auto 6px auto !important; /* Margin auto agar ke tengah */
+        max-width: 900px; /* Membatasi lebar agar tidak mentok kiri-kanan */
         transition: 0.2s;
     }
-    .staff-row-card:hover {
-        border-color: rgba(245, 158, 11, 0.3) !important; /* Oranye tipis hover */
-        background: rgba(255, 255, 255, 0.06) !important;
+    .staff-row-card:hover { border-color: rgba(245, 158, 11, 0.3) !important; }
+    
+    .label-micro { color: #94a3b8; font-size: 8px; text-transform: uppercase; margin: 0; line-height: 1; }
+    .val-mini { font-size: 14px; font-weight: 500; color: white; margin: 0; line-height: 1.2; }
+    
+    .status-hadir { color: #10B981; font-weight: bold; font-size: 13px; }
+    .status-terlambat { color: #F59E0B; font-weight: bold; font-size: 13px; }
+    .status-alpa { color: #EF4444; font-weight: bold; font-size: 13px; }
+
+    /* Button dalam card */
+    div.stButton > button {
+        border-radius: 20px !important;
+        height: 32px !important;
+        font-size: 12px !important;
+        padding: 0 10px !important;
     }
     
-    /* Text Styling Rapat */
-    .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; }
-    .val-mini { font-size: 15px; font-weight: 500; color: white; margin: 0; }
-    
-    /* Warna Status */
-    .status-hadir { color: #10B981; font-weight: bold; font-size: 14px; }
-    .status-terlambat { color: #F59E0B; font-weight: bold; font-size: 14px; }
-    .status-alpa { color: #EF4444; font-weight: bold; font-size: 14px; }
-    
-    /* Menghilangkan elemen standar Streamlit agar lebih bersih */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    /* Nav Buttons di atas */
+    .nav-btn button { height: 45px !important; border-radius: 25px !important; font-size: 14px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. DATABASE ---
+# --- 3. DATABASE (Tetap Lengkap) ---
 DATABASE_INFO = {
     "Suwanto": ["19720521 200912 1 001", "Sekretaris KPU"],
     "Wawan Setiawan": ["19860601 201012 1 004", "Kasubbag TP-Hupmas"],
@@ -193,29 +140,28 @@ def draw_rows(df, master_list, tab_obj, target_date, tab_name):
                     if jam >= limit_out: log[p]["p"] = jam.strftime("%H:%M")
 
     with tab_obj:
+        # Gunakan spacer columns agar card ke tengah dan tidak terlalu lebar
         for p in master_list:
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr_class = "status-hadir" if "HADIR" in d['k'] else "status-terlambat" if "TERLAMBAT" in d['k'] else "status-alpa"
             
-            # Row Layout - Rapat & Center
-            # Tambahkan container div untuk styling rapat
-            st.markdown('<div class="staff-row-card">', unsafe_allow_html=True)
-            c_nm, c_pg, c_sr, c_kt, c_bt = st.columns([3, 1.3, 1.3, 2, 1])
-            
-            c_nm.markdown(f"<p class='label-micro'>👤 PEGAWAI</p><p class='val-mini'>{p}</p>", unsafe_allow_html=True)
-            c_pg.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
-            c_sr.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
-            c_kt.markdown(f"<p class='label-micro' style='text-align:right'>KET</p><p class='{clr_class}' style='text-align:right'>{d['k']}</p>", unsafe_allow_html=True)
-            
-            if c_bt.button("Update ✅", key=f"upd_{tab_name}_{p}", use_container_width=True):
-                info = DATABASE_INFO.get(p)
-                fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
-                requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data={"entry.960346359":p,"entry.468881973":info[0],"entry.159009649":info[1],"submit":"Submit"})
-                st.cache_data.clear(); st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+            # Membatasi lebar baris dengan kolom kosong di pinggir
+            _, center_col, _ = st.columns([1, 8, 1])
+            with center_col:
+                st.markdown(f'<div class="staff-row-card">', unsafe_allow_html=True)
+                c_nm, c_pg, c_sr, c_kt, c_bt = st.columns([3, 1, 1, 1.8, 1.2])
+                c_nm.markdown(f"<p class='label-micro'>👤 PEGAWAI</p><p class='val-mini'>{p}</p>", unsafe_allow_html=True)
+                c_pg.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
+                c_sr.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
+                c_kt.markdown(f"<p class='label-micro' style='text-align:right'>KET</p><p class='{clr_class}' style='text-align:right'>{d['k']}</p>", unsafe_allow_html=True)
+                if c_bt.button("Update ✅", key=f"upd_{tab_name}_{p}", use_container_width=True):
+                    info = DATABASE_INFO.get(p)
+                    fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
+                    requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data={"entry.960346359":p,"entry.468881973":info[0],"entry.159009649":info[1],"submit":"Submit"})
+                    st.cache_data.clear(); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 5. MAIN UI ---
-# Judul & Jam Center (Glass Header)
 st.markdown("""
     <div class="header-container">
         <p class="main-title">MONITORING ABSENSI KPU HSS</p>
@@ -223,46 +169,49 @@ st.markdown("""
     </div>
     """.format(datetime.now().strftime('%H:%M:%S')), unsafe_allow_html=True)
 
-# Tombol Navigasi Center
-_, col_lih, col_ref, col_rek, _ = st.columns([0.5, 2, 2, 2, 0.5])
-
+# Navigasi Buttons
+_, col_lih, col_ref, col_rek, _ = st.columns([1, 2, 2, 2, 1])
 with col_lih:
+    st.markdown('<div class="nav-btn">', unsafe_allow_html=True)
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
         st.session_state.d_tgl = st.date_input("Pilih", datetime.now().date(), key="input_tgl")
+    st.markdown('</div>', unsafe_allow_html=True)
 with col_ref:
+    st.markdown('<div class="nav-btn">', unsafe_allow_html=True)
     if st.button("🔄 REFRESH DATA", use_container_width=True): st.cache_data.clear(); st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 with col_rek:
+    st.markdown('<div class="nav-btn">', unsafe_allow_html=True)
     if st.button("📥 EXCEL REKAP", use_container_width=True): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Advanced Rekap Panel (Glass Panel)
 if st.session_state.get('show_rekap', False):
-    st.markdown("<div style='background-color:rgba(17, 24, 39, 0.7); padding:15px; border-radius:15px; border:1px solid rgba(255,255,255,0.05); margin-bottom:15px;'>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#F59E0B; text-align:center; font-weight:bold;'>ADVANCED REKAP EXCEL</p>", unsafe_allow_html=True)
-    r1, r2, r3 = st.columns(3)
-    bln = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
-    thn = r2.selectbox("Tahun", range(2024, 2031), index=2)
-    kat = r3.selectbox("Kategori", ["SEMUA", "PNS", "PPPK"])
-    if st.button("🚀 GENERATE EXCEL", use_container_width=True):
-        df_all = pd.concat([fetch_cloud_data(URL_PNS), fetch_cloud_data(URL_PPPK)])
-        t_c = df_all.columns[0]
-        df_f = df_all[df_all[t_c].dt.year == thn].copy()
-        if bln != "SEPANJANG TAHUN": df_f = df_f[df_f[t_c].dt.month == LIST_BULAN.index(bln)]
-        if not df_f.empty:
-            out = BytesIO()
-            with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
-            st.download_button("💾 DOWNLOAD", out.getvalue(), f"REKAP_{bln}.xlsx", use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    _, c_rek, _ = st.columns([1, 6, 1])
+    with c_rek:
+        st.markdown("<div style='background-color:rgba(17, 24, 39, 0.7); padding:15px; border-radius:15px; border:1px solid rgba(255,255,255,0.05); margin-bottom:15px;'>", unsafe_allow_html=True)
+        r1, r2, r3 = st.columns(3)
+        bln = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
+        thn = r2.selectbox("Tahun", range(2024, 2031), index=2)
+        kat = r3.selectbox("Kategori", ["SEMUA", "PNS", "PPPK"])
+        if st.button("🚀 GENERATE EXCEL", use_container_width=True):
+            df_all = pd.concat([fetch_cloud_data(URL_PNS), fetch_cloud_data(URL_PPPK)])
+            t_c = df_all.columns[0]
+            df_f = df_all[df_all[t_c].dt.year == thn].copy()
+            if bln != "SEPANJANG TAHUN": df_f = df_f[df_f[t_c].dt.month == LIST_BULAN.index(bln)]
+            if not df_f.empty:
+                out = BytesIO()
+                with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
+                st.download_button("💾 DOWNLOAD", out.getvalue(), f"REKAP_{bln}.xlsx", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # --- 6. DASHBOARD RENDER ---
 df_pns_raw = fetch_cloud_data(URL_PNS)
 df_pppk_raw = fetch_cloud_data(URL_PPPK)
 df_all_raw = pd.concat([df_pns_raw, df_pppk_raw])
 
-# Tabs Merata Tengah (Maroon Accent)
 tab_all, tab_pns, tab_pppk = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 tgl_target = st.session_state.get('d_tgl', datetime.now().date())
 
-# Render Baris PNS/PPPK (Rapat & Center)
 draw_rows(df_all_raw, list(DATABASE_INFO.keys()), tab_all, tgl_target, "all")
 draw_rows(df_pns_raw, MASTER_PNS, tab_pns, tgl_target, "pns")
 draw_rows(df_pppk_raw, MASTER_PPPK, tab_pppk, tgl_target, "pppk")
