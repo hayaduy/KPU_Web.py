@@ -5,104 +5,129 @@ from io import StringIO, BytesIO
 from datetime import datetime
 import random
 
-# --- 1. CONFIGURATION & CYBER THEME ---
+# --- 1. CONFIGURATION & DARK THEME ---
 st.set_page_config(
-    page_title="KPU HSS Presence Hub v15.0",
-    page_icon="⚡",
+    page_title="KPU HSS Presence Hub v16.0",
+    page_icon="🏢",
     layout="wide"
 )
 
-# Mantra CSS untuk tampilan Ultra-Modern
+# Mantra CSS untuk tampilan MIRIP GAMBAR (Hitam, Merah, Elegant)
 st.markdown("""
     <style>
-    /* Background Animasi Gradient */
+    /* Reset & Background */
     .main {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        color: #f8fafc;
-    }
-
-    /* Styling Header Center */
-    .main-header {
-        text-align: center;
-        padding: 20px;
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        margin-bottom: 30px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
-
-    /* Card Pegawai ala Cyberpunk */
-    div[data-testid="stExpander"] {
-        background: rgba(30, 41, 59, 0.4) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 15px !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
-        margin-bottom: 12px !important;
+        background-color: #050505;
+        color: #E2E8F0;
     }
     
-    div[data-testid="stExpander"]:hover {
-        border: 1px solid #f59e0b !important;
-        background: rgba(30, 41, 59, 0.6) !important;
-        box-shadow: 0 0 20px rgba(245, 158, 11, 0.2) !important;
+    /* Center Clock & Date */
+    .time-header {
+        text-align: center;
+        padding: 40px 0;
     }
-
-    /* Metric Styling */
-    div[data-testid="stMetricValue"] {
-        font-size: 28px !important;
-        color: #f59e0b !important;
-        font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* Button Styling */
-    .stButton>button {
-        background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 10px 20px;
+    .time-val {
+        font-size: 80px;
         font-weight: bold;
+        color: white;
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        margin-bottom: 0px;
+    }
+    .date-val {
+        font-size: 24px;
+        color: #F59E0B;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 3px;
+    }
+
+    /* Tabs Styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        background-color: transparent;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 45px;
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: 5px 5px 0 0;
+        color: #94A3B8;
+        padding: 0 20px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #EF4444 !important; /* Merah sesuai gambar */
+        color: white !important;
+    }
+
+    /* ROW CARD PEGAWAI (Mirip Gambar) */
+    .staff-row {
+        background-color: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
         transition: 0.3s;
     }
-    
-    .stButton>button:hover {
-        box-shadow: 0 0 15px rgba(37, 99, 235, 0.6);
-        transform: scale(1.02);
+    .staff-row:hover {
+        background-color: rgba(255, 255, 255, 0.07);
+        border-color: rgba(239, 68, 68, 0.3);
     }
 
-    /* Status Text Glow */
-    .status-hadir { color: #10b981; text-shadow: 0 0 10px rgba(16, 185, 129, 0.4); font-weight: bold; }
-    .status-terlambat { color: #f59e0b; text-shadow: 0 0 10px rgba(245, 158, 11, 0.4); font-weight: bold; }
-    .status-alpa { color: #ef4444; text-shadow: 0 0 10px rgba(239, 68, 68, 0.4); font-weight: bold; }
+    /* Labels */
+    .label-small {
+        font-size: 10px;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 5px;
+    }
+    .val-main {
+        font-size: 20px;
+        font-weight: 500;
+    }
+    .status-text {
+        font-size: 16px;
+        font-weight: bold;
+        text-align: right;
+    }
 
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    /* Button Hidden in Card */
+    .stButton>button {
+        background-color: #1E293B;
+        color: white;
+        border-radius: 8px;
+        border: none;
+        height: 35px;
+        font-size: 12px;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #0A0A0A;
+        border-right: 1px solid #1A1A1A;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. DATABASE PEGAWAI (31 ORANG) ---
 DATABASE_INFO = {
-    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU"],
-    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas"],
-    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik"],
-    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum dan SDM"],
-    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data dan Informasi"],
+    "Suwanto": ["19720521 200912 1 001", "Sekretaris KPU"],
+    "Wawan Setiawan": ["19860601 201012 1 004", "Kasubbag TP-Hupmas"],
+    "Ineke Setiyaningsih": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik"],
+    "Farah Agustina Setiawati": ["19840828 201012 2 003", "Kasubbag Hukum dan SDM"],
+    "Rusma Ariati": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data dan Informasi"],
     "Helmalina": ["19680318 199003 2 003", "Penelaah Teknis Kebijakan"],
-    "Ahmad Erwan Rifani, S.HI": ["19830829 200811 1 001", "Penelaah Teknis Kebijakan"],
+    "Ahmad Erwan Rifani": ["19830829 200811 1 001", "Penelaah Teknis Kebijakan"],
     "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi"],
     "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi"],
     "Najmi Hidayati": ["19850608 200701 2 003", "Penata Kelola Sistem Dan Teknologi Informasi"],
     "Jainal Abidin": ["19820712 200910 1 001", "Pengelola Layanan Operasional"],
-    "Suci Lestari, S.Ikom": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan"],
-    "Athaya Insyira Khairani, S.H": ["20010712202506 2 017", "Penyusun Materi Hukum Dan Perundang- Undangan"],
-    "Muhammad Ibnu Fahmi, S.H.": ["20010608202506 1 007", "Penyusun Materi Hukum Dan Perundang- Undangan"],
-    "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi"],
-    "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi"],
-    "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi"],
+    "Suci Lestari": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan"],
+    "Athaya Insyira Khairani": ["20010712202506 2 017", "Penyusun Materi Hukum Dan Perundang- Undangan"],
+    "Muhammad Ibnu Fahmi": ["20010608202506 1 007", "Penyusun Materi Hukum Dan Perundang- Undangan"],
+    "Alfian Ridhani": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi"],
+    "Muhammad Aldi Hudaifi": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi"],
+    "Firda Aulia": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi"],
     "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA"],
     "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA"],
     "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA"],
@@ -114,8 +139,8 @@ DATABASE_INFO = {
     "Ami Aspihani": ["198204042025211031", "OPERATOR LAYANAN OPERASIONAL"],
     "Abdurrahman": ["198810122025211031", "OPERATOR LAYANAN OPERASIONAL"],
     "Emaliani": ["198906222025212027", "PENGADMINISTRASI PERKANTORAN"],
-    "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "PENATA KELOLA PEMILU AHLI PERTAMA"],
-    "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA"],
+    "Muhammad Hafiz Rijani": ["199603212025211031", "PENATA KELOLA PEMILU AHLI PERTAMA"],
+    "Saiful Fahmi": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA"],
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN"]
 }
 
@@ -127,7 +152,7 @@ URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
 # --- 3. LOGIKA AMBIL DATA ---
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def fetch_cloud_data(url):
     try:
         res = requests.get(f"{url}&nc={random.random()}", timeout=10)
@@ -139,79 +164,101 @@ def fetch_cloud_data(url):
     except:
         return pd.DataFrame()
 
-# --- 4. HEADER ---
-st.markdown('<div class="main-header"><h1>MONITORING ABSENSI KPU HSS</h1></div>', unsafe_allow_html=True)
+# --- 4. HEADER (WAKTU & TANGGAL) ---
+st.markdown(f"""
+    <div class="time-header">
+        <p class="time-val">{datetime.now().strftime('%H:%M:%S')}</p>
+        <p class="date-val">{datetime.now().strftime('%A, %d %B %Y')}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Grid Layout Atas (Jam & Filter Tanggal Dashboard)
-col_clock, col_date = st.columns([2, 1])
-with col_clock:
-    st.markdown(f"### 🕒 {datetime.now().strftime('%H:%M:%S')} WITA")
-with col_date:
-    tgl_dash = st.date_input("📌 Lihat Tanggal:", datetime.now().date())
+# Filter Tanggal Dashboard
+tgl_dash = st.date_input("", datetime.now().date(), label_visibility="collapsed")
 
-# --- 5. SIDEBAR EXCEL REKAP ---
-st.sidebar.title("💎 MENU REKAP")
-with st.sidebar.container():
-    bln_r = st.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
-    thn_r = st.selectbox("Tahun", range(2024, 2031), index=2)
-    kat_r = st.radio("Kategori", ["SEMUA", "PNS", "PPPK"])
-    
-    if st.button("✨ GENERATE LAPORAN"):
-        df_p = fetch_cloud_data(URL_PNS)
-        df_pp = fetch_cloud_data(URL_PPPK)
-        df_all = pd.concat([df_p, df_pp])
-        t_c = df_all.columns[0]
-        
-        df_f = df_all[df_all[t_c].dt.year == thn_r].copy()
-        if bln_r != "SEPANJANG TAHUN":
-            df_f = df_f[df_f[t_c].dt.month == LIST_BULAN.index(bln_r)]
-            
-        if not df_f.empty:
-            df_f[t_c] = df_f[t_c].dt.strftime('%d/%m/%Y %H:%M')
-            out = BytesIO()
-            with pd.ExcelWriter(out, engine='openpyxl') as wr:
-                df_f.to_excel(wr, index=False)
-            st.sidebar.download_button("📥 DOWNLOAD EXCEL", out.getvalue(), f"REKAP_KPU_{bln_r}.xlsx")
-        else:
-            st.sidebar.error("Data tidak ditemukan!")
+# --- 5. TABS ---
+tab_all, tab_pns, tab_pppk = st.tabs([f"🌍 SEMUA ({len(DATABASE_INFO)})", f"👥 PNS ({len(MASTER_PNS)})", f"👥 PPPK ({len(MASTER_PPPK)})"])
 
-# --- 6. DASHBOARD AREA ---
-st.divider()
-tab1, tab2 = st.tabs(["👤 STATUS PNS", "👤 STATUS PPPK"])
-
-def render_staff(df, master, tab):
+def render_staff_rows(df, master_list, tab_obj):
     log = {}
     limit_in = datetime.strptime("09:00", "%H:%M").time()
     limit_out = datetime.strptime("15:30", "%H:%M").time()
     
     if not df.empty:
-        t_c = df.columns[0]
-        df_day = df[df[t_c].dt.date == tgl_dash]
+        t_col = df.columns[0]
+        df_day = df[df[t_col].dt.date == tgl_dash]
         for _, r in df_day.iterrows():
-            n, jam = str(r.iloc[1]).strip(), r[t_col].time() if 't_col' in locals() else r.iloc[0].time()
+            n, jam = str(r.iloc[1]).strip(), r[t_col].time()
+            # Logika Pagi/Sore (Tetap sesuai tujuan aplikasi)
             if n not in log:
                 log[n] = {"m": jam.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if jam < limit_in else "TERLAMBAT"}
             if jam >= limit_out:
                 log[n]["p"] = jam.strftime("%H:%M")
 
-    with tab:
-        for p in master:
-            d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
-            c_tag = "status-hadir" if "HADIR" in d['k'] else "status-terlambat" if "TERLAMBAT" in d['k'] else "status-alpa"
+    with tab_obj:
+        for p in master_list:
+            d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
+            status_color = "#10B981" if "HADIR" in d['k'] else "#F59E0B" if "TERLAMBAT" in d['k'] else "#EF4444"
             
-            with st.expander(f"**{p}**"):
-                c1, c2, c3 = st.columns([1,1,1])
-                c1.metric("MASUK", d['m'])
-                c2.metric("PULANG", d['p'])
-                c3.markdown(f"STATUS:<br><span class='{c_tag}'>{d['k']}</span>", unsafe_allow_html=True)
+            # Memulai Baris Pegawai
+            with st.container():
+                col_nama, col_pagi, col_sore, col_ket, col_btn = st.columns([3, 1.5, 1.5, 2, 1])
                 
-                if st.button(f"SINKRONISASI DATA: {p[:12]}...", key=p):
-                    info = DATABASE_INFO.get(p)
-                    fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
-                    requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", 
-                                  data={"entry.960346359": p, "entry.468881973": info[0], "entry.159009649": info[1], "submit": "Submit"})
-                    st.success("Berhasil!")
-                    st.rerun()
+                with col_nama:
+                    st.markdown(f"<p style='margin-bottom:0; color:#94A3B8; font-size:12px;'>👤 PEGAWAI</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p class='val-main'>{p}</p>", unsafe_allow_html=True)
+                
+                with col_pagi:
+                    st.markdown(f"<p class='label-small'>PAGI</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p class='val-main'>{d['m']}</p>", unsafe_allow_html=True)
+                
+                with col_sore:
+                    st.markdown(f"<p class='label-small'>SORE</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p class='val-main'>{d['p']}</p>", unsafe_allow_html=True)
+                
+                with col_ket:
+                    st.markdown(f"<p class='label-small' style='text-align:right'>KET</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p class='status-text' style='color:{status_color}'>{d['k']}</p>", unsafe_allow_html=True)
+                
+                with col_btn:
+                    if st.button("Update ✅", key=p):
+                        info = DATABASE_INFO.get(p)
+                        fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
+                        requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", 
+                                      data={"entry.960346359": p, "entry.468881973": info[0], "entry.159009649": info[1], "submit": "Submit"})
+                        st.rerun()
+                st.markdown("<hr style='margin:10px 0; border-color:rgba(255,255,255,0.05)'>", unsafe_allow_html=True)
 
-render_staff(fetch_cloud_data(URL_PNS), MASTER_PNS, tab1)
-render_staff(fetch_cloud_data(URL_PPPK), MASTER_PPPK, tab2)
+# Jalankan Dashboard
+df_pns = fetch_cloud_data(URL_PNS)
+df_pppk = fetch_cloud_data(URL_PPPK)
+df_all_data = pd.concat([df_pns, df_pppk])
+
+render_staff_rows(df_all_data, list(DATABASE_INFO.keys()), tab_all)
+render_staff_rows(df_pns, MASTER_PNS, tab_pns)
+render_staff_rows(df_pppk, MASTER_PPPK, tab_pppk)
+
+# --- 6. SIDEBAR REKAP ---
+with st.sidebar:
+    st.title("📥 EXCEL REKAP")
+    bln = st.selectbox("Bulan", LIST_BULAN, index=datetime.now().month)
+    thn = st.selectbox("Tahun", range(2024, 2031), index=2)
+    kat = st.radio("Download Kategori", ["SEMUA", "PNS", "PPPK"])
+    
+    if st.button("🚀 GENERATE FILE"):
+        t_col = df_all_data.columns[0]
+        n_col = df_all_data.columns[1]
+        df_f = df_all_data[df_all_data[t_col].dt.year == thn].copy()
+        if bln != "SEPANJANG TAHUN":
+            df_f = df_f[df_f[t_col].dt.month == LIST_BULAN.index(bln)]
+        
+        if kat == "PNS": df_f = df_f[df_f[n_col].isin(MASTER_PNS)]
+        elif kat == "PPPK": df_f = df_f[df_f[n_col].isin(MASTER_PPPK)]
+
+        if not df_f.empty:
+            df_f[t_col] = df_f[t_col].dt.strftime('%d/%m/%Y %H:%M')
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as wr:
+                df_f.to_excel(wr, index=False)
+            st.download_button("💾 KLIK UNTUK SIMPAN", out.getvalue(), f"REKAP_{bln}_{thn}.xlsx")
+        else:
+            st.error("Data tidak ditemukan!")
