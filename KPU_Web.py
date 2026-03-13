@@ -2,58 +2,58 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import StringIO, BytesIO
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
-import pytz # Wajib untuk waktu Makassar
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(
-    page_title="KPU HSS Presence Hub v16.10",
-    page_icon="🏢",
-    layout="wide"
-)
+st.set_page_config(page_title="KPU HSS Presence Hub v18.4", page_icon="🏢", layout="wide")
 
-# --- 2. LUXURY CSS (MOBILE & DESKTOP SYNC) ---
+# --- 2. THEME CUSTOMIZATION (LUXURY MAROON & GLOW) ---
 st.markdown("""
     <style>
     .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
     
-    .header-container { text-align: center; padding: 10px 0; margin-bottom: 20px; }
-    .main-title { font-size: clamp(24px, 6vw, 55px) !important; font-weight: 900; color: white; margin: 0; line-height: 1.2; }
-    .time-glow { font-size: clamp(30px, 8vw, 50px) !important; color: #fbbf24; text-shadow: 0 0 20px rgba(251, 191, 36, 0.6); font-weight: bold; font-family: 'JetBrains Mono', monospace; margin-top: 5px; }
+    /* Header Section */
+    .header-container { text-align: center; padding: 10px 0; }
+    .main-title { font-size: clamp(30px, 6vw, 60px) !important; font-weight: 900; color: white; margin: 0; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
+    .time-glow { font-size: clamp(35px, 8vw, 55px) !important; color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.6); font-weight: bold; font-family: 'JetBrains Mono', monospace; }
 
-    /* Navigasi Buttons SEJAJAR & FULL WIDTH */
-    div.stButton > button {
-        width: 100% !important;
-        height: 55px !important;
-        border-radius: 30px !important;
-        font-weight: bold !important;
-        font-size: 14px !important;
-        border: 1px solid rgba(251, 191, 36, 0.3) !important;
-        background-color: rgba(255, 255, 255, 0.05) !important;
-        color: white !important;
-    }
-
-    /* BARIS PEGAWAI - RAPAT & CENTERED */
+    /* EFEK HOVER MENYALA (DETEKSI LAMPU) */
     .staff-row-card {
         background: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-        padding: 8px 15px;
-        margin: 0 auto 5px auto;
+        border: 1px solid rgba(251, 191, 36, 0.1);
+        border-radius: 12px;
+        padding: 10px 20px;
+        margin: 0 auto 8px auto;
         max-width: 1000px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
     
-    .val-nama { font-size: clamp(16px, 4vw, 24px) !important; font-weight: 800; color: white; margin: 0; }
+    /* Saat kursor diatas item (Lampu Menyala) */
+    .staff-row-card:hover {
+        background: rgba(251, 191, 36, 0.15) !important;
+        border: 1px solid #fbbf24 !important;
+        box-shadow: 0 0 25px rgba(251, 191, 36, 0.4);
+        transform: scale(1.015);
+    }
+
+    /* Typography */
+    .val-nama { font-size: clamp(18px, 4vw, 28px) !important; font-weight: 800; color: white; margin: 0; }
     .val-mini { font-size: clamp(14px, 3.5vw, 18px) !important; font-weight: 600; color: #fbbf24; margin: 0; }
-    .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; }
+    .label-micro { color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 0; }
     
-    .status-hadir { color: #10B981; font-weight: bold; }
+    .status-hadir { color: #10B981; font-weight: bold; text-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
     .status-terlambat { color: #F59E0B; font-weight: bold; }
     .status-alpa { color: #EF4444; font-weight: bold; }
 
+    /* Buttons */
+    div.stButton > button {
+        width: 100% !important; border-radius: 30px !important; font-weight: bold;
+        border: 1px solid rgba(251, 191, 36, 0.3) !important; height: 50px;
+    }
+    
     #MainMenu, footer, header {visibility: hidden;}
-    .block-container { padding-top: 2rem !important; }
+    .block-container { padding-top: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -99,7 +99,7 @@ LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei",
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-# --- 4. DATA LOGIC ---
+# --- 4. LOGIC DATA ---
 @st.cache_data(ttl=15)
 def fetch_cloud_data(url):
     try:
@@ -140,32 +140,27 @@ def draw_rows(df, master_list, tab_obj, target_date, tab_name):
                 st.cache_data.clear(); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. MAIN UI (HEADER & NAVIGATION) ---
-st.markdown("""
-    <div class="header-container">
-        <p class="main-title">MONITORING ABSENSI KPU HSS</p>
-        <p id="clock-display" class="time-glow">00:00:00 WITA</p>
-    </div>
-    <script>
-        function updateClock() {
-            // Waktu lokal Makassar (UTC+8)
-            const now = new Date();
-            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-            const makassarTime = new Date(utc + (3600000 * 8));
-            
-            const hours = String(makassarTime.getHours()).padStart(2, '0');
-            const minutes = String(makassarTime.getMinutes()).padStart(2, '0');
-            const seconds = String(makassarTime.getSeconds()).padStart(2, '0');
-            const clock = document.getElementById('clock-display');
-            if(clock) clock.innerText = hours + ':' + minutes + ':' + seconds + ' WITA';
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
-    </script>
-    """, unsafe_allow_html=True)
+# --- 5. MAIN UI (HEADER & TIME CONTROL) ---
+# Logic Jam Manual
+if 'manual_time' not in st.session_state:
+    st.session_state.manual_time = datetime.now().strftime("%H:%M:%S")
 
-# NAVIGATION ROW (LIHAT TGL, REFRESH, REKAP)
-# Dibuat Full Sejajar Tanpa Celah Berlebih
+col_title, col_set = st.columns([9, 1])
+with col_title:
+    st.markdown('<div class="header-container"><p class="main-title">MONITORING ABSENSI KPU HSS</p></div>', unsafe_allow_html=True)
+with col_set:
+    if st.button("⚙️"): st.session_state.show_time_set = not st.session_state.get('show_time_set', False)
+
+if st.session_state.get('show_time_set', False):
+    new_t = st.text_input("Set Jam Manual (HH:mm:ss):", st.session_state.manual_time)
+    if st.button("Simpan Jam"): 
+        st.session_state.manual_time = new_t
+        st.session_state.show_time_set = False
+        st.rerun()
+
+st.markdown(f'<div style="text-align:center;"><p class="time-glow">{st.session_state.manual_time} WITA</p></div>', unsafe_allow_html=True)
+
+# NAVIGASI SEJAJAR
 col_lih, col_ref, col_rek = st.columns([1,1,1])
 with col_lih:
     with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
