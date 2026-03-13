@@ -4,84 +4,74 @@ import requests
 from io import StringIO, BytesIO
 from datetime import datetime
 import random
-import time
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v18.0", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v18.1", page_icon="🏢", layout="wide")
 
-# --- 2. THEME CUSTOMIZATION (MAROON & GLOWING ACCENT) ---
+# --- 2. THEME CUSTOMIZATION (MAROON, GLOWING, COMPACT, & FULL-WIDTH) ---
 st.markdown("""
     <style>
-    /* Background Maroon Premium */
-    .main {
-        background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%);
-        color: #f8fafc;
-    }
+    /* Background & Global */
+    .main { background: linear-gradient(135deg, #4c0519 0%, #1e0000 100%); color: #f8fafc; }
     
-    /* Header & Jam */
-    .header-container { text-align: center; padding: 10px 0; margin-bottom: 20px; }
-    .main-title { font-size: 60px !important; font-weight: 900; color: white; margin: 0; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
-    .time-glow { font-size: 55px !important; color: #fbbf24; text-shadow: 0 0 25px rgba(251, 191, 36, 0.6); font-weight: bold; font-family: 'JetBrains Mono', monospace; }
+    /* Header Container */
+    .header-container { text-align: center; padding: 20px 0 10px 0; margin-bottom: 10px; }
+    .main-title { font-size: 65px !important; font-weight: 900; color: white; margin: 0; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); line-height: 1; }
+    
+    /* Jam Real-time ala JS (Anti-Refresh) */
+    #clock-display { font-size: 55px !important; color: #fbbf24; text-shadow: 0 0 25px rgba(251, 191, 36, 0.6); font-weight: bold; font-family: 'JetBrains Mono', monospace; }
 
-    /* Navigasi & Tab dengan Garis Oranye Tipis */
-    .stTabs [data-baseweb="tab-list"] { justify-content: center; gap: 10px; }
-    .stTabs [data-baseweb="tab"] {
-        border: 1px solid rgba(251, 191, 36, 0.2) !important;
-        background-color: rgba(0, 0, 0, 0.3) !important;
-        border-radius: 10px 10px 0 0;
-        transition: 0.3s;
-    }
-    .stTabs [aria-selected="true"] { 
-        background-color: #8b0000 !important; 
-        border: 1px solid #fbbf24 !important;
-        color: white !important; 
-    }
-
-    /* CARD PEGAWAI - ULTRA COMPACT & GLOWING HOVER */
-    .staff-row-card {
-        background: rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(251, 191, 36, 0.15); /* Garis Oranye Tipis */
-        border-radius: 8px;
-        padding: 5px 15px;
-        margin: 0 auto 5px auto;
-        max-width: 1050px;
-        transition: all 0.4s ease; /* Transisi halus seperti lampu menyala */
-    }
-    
-    /* Efek Deteksi Lampu saat Kursor di Atas Item */
-    .staff-row-card:hover {
-        background: rgba(251, 191, 36, 0.1) !important;
-        border: 1px solid #fbbf24 !important;
-        box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
-        transform: scale(1.01);
-    }
-    
-    /* Nama Pegawai Lebih Besar */
-    .val-nama { font-size: 24px !important; font-weight: 800; color: white; margin: 0; line-height: 1.1; }
-    .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; }
-    .val-mini { font-size: 16px; font-weight: 600; color: #fbbf24; margin: 0; }
-    
-    .status-hadir { color: #10B981; font-weight: bold; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
-    .status-terlambat { color: #F59E0B; font-weight: bold; }
-    .status-alpa { color: #EF4444; font-weight: bold; }
-
-    /* Tombol Navigasi Glowing */
+    /* Tombol Navigasi SEJAJAR & FULL WIDTH */
     div.stButton > button {
-        border-radius: 20px; font-weight: bold; 
+        width: 100% !important;
+        height: 55px !important;
+        border-radius: 30px !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
         border: 1px solid rgba(251, 191, 36, 0.3) !important;
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: white !important;
         transition: 0.3s;
     }
     div.stButton > button:hover {
-        border: 1px solid #fbbf24 !important;
-        box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+        border-color: #fbbf24 !important;
+        box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
         background-color: rgba(251, 191, 36, 0.1) !important;
     }
+
+    /* Tab Styling Maroon */
+    .stTabs [data-baseweb="tab-list"] { justify-content: center; gap: 10px; }
+    .stTabs [aria-selected="true"] { background-color: #8b0000 !important; border: 1px solid #fbbf24 !important; color: white !important; }
+
+    /* BARIS PEGAWAI - RAPAT & CENTERED */
+    .staff-row-card {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 5px 15px;
+        margin: 0 auto 4px auto;
+        max-width: 1100px;
+        transition: 0.3s ease;
+    }
+    .staff-row-card:hover {
+        background: rgba(251, 191, 36, 0.08) !important;
+        border: 1px solid #fbbf24 !important;
+        box-shadow: 0 0 12px rgba(251, 191, 36, 0.2);
+    }
+    
+    .val-nama { font-size: 26px !important; font-weight: 800; color: white; margin: 0; line-height: 1; }
+    .label-micro { color: #94a3b8; font-size: 9px; text-transform: uppercase; margin: 0; }
+    .val-mini { font-size: 16px; font-weight: 600; color: #fbbf24; margin: 0; }
+    
+    .status-hadir { color: #10B981; font-weight: bold; }
+    .status-terlambat { color: #F59E0B; font-weight: bold; }
+    .status-alpa { color: #EF4444; font-weight: bold; }
 
     #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. DATABASE PEGAWAI ---
+# --- 3. DATABASE ---
 DATABASE_INFO = {
     "Suwanto": ["19720521 200912 1 001", "Sekretaris KPU"],
     "Wawan Setiawan": ["19860601 201012 1 004", "Kasubbag TP-Hupmas"],
@@ -123,8 +113,8 @@ LIST_BULAN = ["SEPANJANG TAHUN", "Januari", "Februari", "Maret", "April", "Mei",
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-# --- 4. DATA LOGIC ---
-@st.cache_data(ttl=10)
+# --- 4. LOGIC ---
+@st.cache_data(ttl=15)
 def fetch_cloud_data(url):
     try:
         res = requests.get(f"{url}&nc={random.random()}", timeout=10)
@@ -151,75 +141,73 @@ def draw_rows(df, master_list, tab_obj, target_date, tab_name):
         for p in master_list:
             d = log.get(p, {"m": "--:--", "p": "--:--", "k": "BELUM ABSEN"})
             clr = "status-hadir" if "HADIR" in d['k'] else "status-terlambat" if "TERLAMBAT" in d['k'] else "status-alpa"
-            _, center_col, _ = st.columns([0.2, 9.6, 0.2])
-            with center_col:
-                st.markdown(f'<div class="staff-row-card">', unsafe_allow_html=True)
-                c_nm, c_pg, c_sr, c_kt, c_bt = st.columns([4, 1.2, 1.2, 2, 1.2])
-                c_nm.markdown(f"<p class='label-micro'>👤 PEGAWAI</p><p class='val-nama'>{p}</p>", unsafe_allow_html=True)
-                c_pg.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
-                c_sr.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
-                c_kt.markdown(f"<p class='label-micro' style='text-align:right'>KETERANGAN</p><p class='{clr}' style='text-align:right; font-size:15px;'>{d['k']}</p>", unsafe_allow_html=True)
-                if c_bt.button("Update ✅", key=f"upd_{tab_name}_{p}", use_container_width=True):
-                    info = DATABASE_INFO.get(p)
-                    fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
-                    requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data={"entry.960346359":p,"entry.468881973":info[0],"entry.159009649":info[1],"submit":"Submit"})
-                    st.cache_data.clear(); st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="staff-row-card">', unsafe_allow_html=True)
+            c_nm, c_pg, c_sr, c_kt, c_bt = st.columns([4, 1.2, 1.2, 2, 1.2])
+            c_nm.markdown(f"<p class='label-micro'>👤 PEGAWAI</p><p class='val-nama'>{p}</p>", unsafe_allow_html=True)
+            c_pg.markdown(f"<p class='label-micro'>PAGI</p><p class='val-mini'>{d['m']}</p>", unsafe_allow_html=True)
+            c_sr.markdown(f"<p class='label-micro'>SORE</p><p class='val-mini'>{d['p']}</p>", unsafe_allow_html=True)
+            c_kt.markdown(f"<p class='label-micro' style='text-align:right'>STATUS</p><p class='{clr}' style='text-align:right; font-size:15px;'>{d['k']}</p>", unsafe_allow_html=True)
+            if c_bt.button("Update ✅", key=f"upd_{tab_name}_{p}"):
+                info = DATABASE_INFO.get(p)
+                fid = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA" if p in MASTER_PNS else "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
+                requests.post(f"https://docs.google.com/forms/d/e/{fid}/formResponse", data={"entry.960346359":p,"entry.468881973":info[0],"entry.159009649":info[1],"submit":"Submit"})
+                st.cache_data.clear(); st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 5. MAIN UI ---
-st.markdown(f"""
+st.markdown("""
     <div class="header-container">
         <p class="main-title">MONITORING ABSENSI KPU HSS</p>
-        <p class="time-glow">{datetime.now().strftime('%H:%M:%S')} WITA</p>
+        <p id="clock-display">--:--:-- WITA</p>
     </div>
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock-display').innerText = hours + ':' + minutes + ':' + seconds + ' WITA';
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
     """, unsafe_allow_html=True)
 
-# Navigation Center
-_, col_lih, col_ref, col_rek, _ = st.columns([1, 2, 2, 2, 1])
+# NAVIGASI SEJAJAR FULL WIDTH
+col_lih, col_ref, col_rek = st.columns([1,1,1])
 with col_lih:
-    with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}"):
+    with st.expander(f"📅 Tgl: {st.session_state.get('d_tgl', datetime.now().date())}", expanded=False):
         st.session_state.d_tgl = st.date_input("Pilih", datetime.now().date(), key="input_tgl")
 with col_ref:
     if st.button("🔄 REFRESH DATA"): st.cache_data.clear(); st.rerun()
 with col_rek:
     if st.button("📥 EXCEL REKAP"): st.session_state.show_rekap = not st.session_state.get('show_rekap', False)
 
-# Advanced Rekap Panel (Full Power)
 if st.session_state.get('show_rekap', False):
-    _, c_rek, _ = st.columns([1, 8, 1])
-    with c_rek:
-        st.markdown("<div style='background-color:rgba(0,0,0,0.6); padding:20px; border-radius:15px; border:1px solid #fbbf24;'>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#fbbf24; text-align:center; font-weight:bold; font-size:20px;'>ADVANCED REKAP EXCEL</p>", unsafe_allow_html=True)
-        r1, r2 = st.columns(2); bln = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month); thn = r2.selectbox("Tahun", range(2024, 2031), index=2)
-        r3, r4 = st.columns(2); kat_r = r3.selectbox("Kategori", ["SEMUA PEGAWAI", "PNS", "PPPK"])
-        nm_opts = ["-- Semua Pegawai --"]; nm_opts += MASTER_PNS if kat_r == "PNS" else MASTER_PPPK if kat_r == "PPPK" else []
-        nm_r = r4.selectbox("Nama Spesifik", nm_opts)
-        if st.button("🚀 GENERATE EXCEL"):
-            df_all = pd.concat([fetch_cloud_data(URL_PNS), fetch_cloud_data(URL_PPPK)])
-            t_col, n_col = df_all.columns[0], df_all.columns[1]
-            df_f = df_all[df_all[t_col].dt.year == thn].copy()
-            if bln != "SEPANJANG TAHUN": df_f = df_f[df_f[t_col].dt.month == LIST_BULAN.index(bln)]
-            if kat_r == "PNS": df_f = df_f[df_f[n_col].isin(MASTER_PNS)]
-            elif kat_r == "PPPK": df_f = df_f[df_f[n_col].isin(MASTER_PPPK)]
-            if "-- Semua" not in nm_r: df_f = df_f[df_f[n_col].str.contains(nm_r, case=False, na=False)]
-            if not df_f.empty:
-                out = BytesIO()
-                with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
-                st.download_button("💾 DOWNLOAD HASIL", out.getvalue(), f"REKAP_{kat_r}_{bln}.xlsx", use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div style='background-color:rgba(0,0,0,0.6); padding:20px; border-radius:15px; border:1px solid #fbbf24; margin-top:10px;'>", unsafe_allow_html=True)
+    r1, r2 = st.columns(2); bln = r1.selectbox("Bulan", LIST_BULAN, index=datetime.now().month); thn = r2.selectbox("Tahun", range(2024, 2031), index=2)
+    r3, r4 = st.columns(2); kat_r = r3.selectbox("Kategori", ["SEMUA PEGAWAI", "PNS", "PPPK"])
+    nm_opts = ["-- Semua --"]; nm_opts += MASTER_PNS if kat_r == "PNS" else MASTER_PPPK if kat_r == "PPPK" else []
+    nm_r = r4.selectbox("Nama Spesifik", nm_opts)
+    if st.button("🚀 GENERATE EXCEL"):
+        df_all = pd.concat([fetch_cloud_data(URL_PNS), fetch_cloud_data(URL_PPPK)])
+        t_c, n_c = df_all.columns[0], df_all.columns[1]
+        df_f = df_all[df_all[t_c].dt.year == thn].copy()
+        if bln != "SEPANJANG TAHUN": df_f = df_f[df_f[t_c].dt.month == LIST_BULAN.index(bln)]
+        if kat_r == "PNS": df_f = df_f[df_f[n_c].isin(MASTER_PNS)]
+        elif kat_r == "PPPK": df_f = df_f[df_f[n_c].isin(MASTER_PPPK)]
+        if "-- Semua" not in nm_r: df_f = df_f[df_f[n_c].str.contains(nm_r, case=False, na=False)]
+        if not df_f.empty:
+            df_f[t_c] = df_f[t_c].dt.strftime('%d/%m/%Y %H:%M')
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as wr: df_f.to_excel(wr, index=False)
+            st.download_button("💾 DOWNLOAD HASIL", out.getvalue(), f"REKAP_{kat_r}_{bln}.xlsx", use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # --- 6. DASHBOARD ---
-df_pns_raw = fetch_cloud_data(URL_PNS); df_pppk_raw = fetch_cloud_data(URL_PPPK)
-df_all_raw = pd.concat([df_pns_raw, df_pppk_raw])
-
-tab_all, tab_pns, tab_pppk = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
+df_all_raw = pd.concat([fetch_cloud_data(URL_PNS), fetch_cloud_data(URL_PPPK)])
+tab1, tab2, tab3 = st.tabs([f"🌍 SEMUA (31)", f"👥 PNS (17)", f"👥 PPPK (14)"])
 tgl_target = st.session_state.get('d_tgl', datetime.now().date())
-
-draw_rows(df_all_raw, list(DATABASE_INFO.keys()), tab_all, tgl_target, "all")
-draw_rows(df_pns_raw, MASTER_PNS, tab_pns, tgl_target, "pns")
-draw_rows(df_pppk_raw, MASTER_PPPK, tab_pppk, tgl_target, "pppk")
-
-# SCRIPT REAL-TIME CLOCK (Sinkronisasi browser)
-st.empty() # Placeholder
-time.sleep(1)
-st.rerun() # Refresh minimalis untuk jam
+draw_rows(df_all_raw, list(DATABASE_INFO.keys()), tab1, tgl_target, "all")
+draw_rows(fetch_cloud_data(URL_PNS), MASTER_PNS, tab2, tgl_target, "pns")
+draw_rows(fetch_cloud_data(URL_PPPK), MASTER_PPPK, tab3, tgl_target, "pppk")
