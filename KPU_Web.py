@@ -9,7 +9,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v56.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v57.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -34,6 +34,8 @@ st.markdown("""
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
+
+# GUNAKAN LINK SCRIPT TERBARU ABANG SETELAH REDEPLOY
 SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
 
 FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
@@ -78,17 +80,15 @@ MASTER_PNS = list(DATABASE_INFO.keys())[:17]
 MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. HELPER FUNCTION ---
+# --- 3. HELPER ---
 def get_clean_df(url):
     try:
         r = requests.get(f"{url}&cb={random.random()}", timeout=15)
         df = pd.read_csv(StringIO(r.text))
-        df = df.dropna(how='all')
-        return df
+        return df.dropna(how='all')
     except: return None
 
 # --- 4. DIALOGS ---
-
 @st.dialog("Update Data Pegawai")
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
@@ -107,7 +107,7 @@ def pop_update(nama):
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             requests.post(SCRIPT_LAPKIN, json=payload)
-            st.success("Tersimpan!"); time.sleep(1); st.rerun()
+            st.success("Tersimpan (Data Lama Hari Ini Diganti)!"); time.sleep(1); st.rerun()
 
 @st.dialog("Advanced Rekap Excel", width="large")
 def pop_rekap_advanced():
@@ -115,10 +115,8 @@ def pop_rekap_advanced():
     c1, c2 = st.columns(2)
     with c1: r_bulan = st.selectbox("Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
     with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
-    
-    # FILTER TAMBAHAN (KATEGORI & NAMA)
     c3, c4 = st.columns(2)
-    with c3: r_kat = st.selectbox("Kategori Pegawai:", ["SEMUA", "PNS", "PPPK"])
+    with c3: r_kat = st.selectbox("Kategori:", ["SEMUA", "PNS", "PPPK"])
     with c4:
         opts = ["-- Semua Nama --"]
         if r_kat == "PNS": opts += MASTER_PNS
@@ -127,31 +125,22 @@ def pop_rekap_advanced():
         r_nama = st.selectbox("Pilih Nama:", opts)
         
     if st.button("📊 PROSES DATA REKAP", use_container_width=True):
-        df1 = get_clean_df(URL_PNS)
-        df2 = get_clean_df(URL_PPPK)
+        df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
         if df1 is not None and df2 is not None:
             df = pd.concat([df1, df2], ignore_index=True)
             df['ts_str'] = df.iloc[:, 0].astype(str)
-            # Filter Tahun & Bulan
             df = df[df['ts_str'].str.contains(str(r_tahun))]
             if r_bulan != "SEPANJANG TAHUN":
                 m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}"
                 df = df[df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-")]
-            
-            # Filter Kategori & Nama
-            if r_nama != "-- Semua Nama --":
-                df = df[df.iloc[:, 1] == r_nama]
-            elif r_kat == "PNS":
-                df = df[df.iloc[:, 1].isin(MASTER_PNS)]
-            elif r_kat == "PPPK":
-                df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
-                
+            if r_nama != "-- Semua Nama --": df = df[df.iloc[:, 1] == r_nama]
+            elif r_kat == "PNS": df = df[df.iloc[:, 1].isin(MASTER_PNS)]
+            elif r_kat == "PPPK": df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
             if not df.empty:
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False, sheet_name="Rekap")
-                st.download_button("📥 DOWNLOAD FILE REKAP", out.getvalue(), f"REKAP_{r_kat}.xlsx", use_container_width=True)
+                st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_kat}.xlsx", use_container_width=True)
             else: st.warning("Data tidak ditemukan.")
-        else: st.error("Gagal menarik data.")
 
 @st.dialog("Download Lapkin Bulanan")
 def pop_cetak():
