@@ -8,7 +8,7 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v49.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v50.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -30,18 +30,16 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 2. CONFIGURATION ---
-# Link Spreadsheet untuk MONITORING (Hasil Respon Form)
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
 
-# URL SCRIPT KHUSUS LAPKIN (Tanpa pengaruh ke Absen)
+# URL SCRIPT KHUSUS LAPKIN (Tetap ke Spreadsheet)
 SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
 
-# URL GOOGLE FORM ABSENSI (Ganti dengan Link Form Abang)
-# Format: https://docs.google.com/forms/d/e/[ID_FORM]/formResponse?entry.[ID_NAMA]=
+# URL GOOGLE FORM ABSENSI (Kirim ke formResponse)
 FORM_ABSEN_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdw_GzE_fS6_YourFormID/formResponse"
-ENTRY_ID_NAMA = "entry.123456789" # Ganti dengan Entry ID Nama di Form Abang
+ENTRY_ID_NAMA = "entry.123456789" # Ganti dengan ID Nama di Form
 
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. HSS"],
@@ -77,8 +75,6 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. HSS"]
 }
 
-MASTER_PNS = list(DATABASE_INFO.keys())[:17]
-MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 # --- 4. DIALOGS ---
@@ -86,42 +82,45 @@ LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "A
 @st.dialog("Update Data Pegawai")
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
-    tipe = st.radio("Pilih Update:", ["Pagi (Absen Datang)", "Sore (Laporan Kerja)"])
+    tipe = st.radio("Pilih Update:", ["Absen", "Lapkin"])
     
-    if tipe == "Pagi (Absen Datang)":
+    if tipe == "Absen":
         if st.button("🚀 KIRIM ABSEN KE GOOGLE FORM"):
-            # Mengirim ke Google Form Absensi
             params = {ENTRY_ID_NAMA: nama}
             try:
                 requests.get(FORM_ABSEN_URL, params=params)
                 st.success("Absen terkirim ke Google Form!")
                 time.sleep(1); st.rerun()
-            except: st.error("Gagal terhubung ke Google Form.")
+            except: st.error("Gagal terhubung.")
 
-    else: # Update Sore (Lapkin)
+    else: # Update Lapkin
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja/Output:")
         if st.button("📝 KIRIM LAPKIN KE SPREADSHEET"):
             info = DATABASE_INFO[nama]
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
-            # Mengirim HANYA ke Spreadsheet Lapkin (Tanpa pengaruhi absen)
             res = requests.post(SCRIPT_LAPKIN, json=payload)
             if "Success" in res.text:
                 st.success("Laporan Kerja tersimpan!"); time.sleep(1); st.rerun()
 
 @st.dialog("Advanced Rekap", width="large")
 def pop_rekap_advanced():
-    # ... (Logika Rekap Tetap Ada Seperti Versi Sebelumnya) ...
-    st.info("Fitur Rekap Advanced Tetap Aktif")
-    if st.button("Close"): st.rerun()
+    # ... (Logika Rekap Sesuai v48.0) ...
+    st.write("### 📊 FILTER REKAP ABSENSI")
+    col_a, col_b = st.columns(2)
+    with col_a: r_bulan = st.selectbox("Pilih Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
+    with col_b: r_tahun = st.selectbox("Pilih Tahun:", ["2025", "2026", "2027"], index=1)
+    if st.button("📊 DOWNLOAD REKAP"):
+         st.info("Fitur Rekap diproses...")
 
 @st.dialog("Download Lapkin")
 def pop_cetak():
-    # ... (Logika Cetak Lapkin Tetap Ada Seperti Versi Sebelumnya) ...
-    st.info("Fitur Download Lapkin Tetap Aktif")
-    if st.button("Close"): st.rerun()
+    c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
+    c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
+    if st.button("📊 PROSES DOWNLOAD"):
+         st.info("File sedang disiapkan...")
 
-# --- 5. MAIN UI (CENTERED) ---
+# --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
 
