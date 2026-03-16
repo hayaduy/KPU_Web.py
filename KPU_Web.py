@@ -9,7 +9,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v52.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v53.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -36,13 +36,9 @@ URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKo
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
 SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
 
-# ID FORM & ENTRY (Berdasarkan Data Abang)
 FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
 FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
-
-E_NAMA = "entry.960346359"
-E_NIP = "entry.468881973"
-E_JABATAN = "entry.159009649"
+E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "PNS"],
@@ -78,6 +74,10 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "PPPK"]
 }
 
+MASTER_PNS = list(DATABASE_INFO.keys())[:17]
+MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
+LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+
 # --- 4. DIALOGS ---
 
 @st.dialog("Update Data Pegawai")
@@ -85,50 +85,87 @@ def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
     tipe = st.radio("Pilih Update:", ["Absen", "Lapkin"])
     info = DATABASE_INFO[nama]
-    
     if tipe == "Absen":
-        st.info(f"Mengirim Absen ke Form {info[2]}...")
         if st.button("🚀 KIRIM ABSEN SEKARANG"):
-            # Pilih Form Berdasarkan Kategori
             f_id = FORM_ID_PNS if info[2] == "PNS" else FORM_ID_PPPK
-            
-            # Buat URL pre-filled
-            u_nama = nama.replace(" ", "+")
-            u_nip = info[0].replace(" ", "+")
-            u_jab = info[1].replace(" ", "+")
-            
+            u_nama, u_nip, u_jab = nama.replace(" ", "+"), info[0].replace(" ", "+"), info[1].replace(" ", "+")
             full_url = f"https://docs.google.com/forms/d/e/{f_id}/formResponse?{E_NAMA}={u_nama}&{E_NIP}={u_nip}&{E_JABATAN}={u_jab}&submit=Submit"
-            
-            components.html(f"""
-                <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
-                <form action="{full_url}" method="post" target="hidden_iframe" id="absen_form"></form>
-                <script>document.getElementById('absen_form').submit(); alert('Absen {nama} Berhasil!');</script>
-            """, height=0)
-            st.success("Berhasil dikirim!")
-            time.sleep(2); st.rerun()
-
-    else: # Lapkin
+            components.html(f"""<iframe name="h" style="display:none;"></iframe><form action="{full_url}" method="post" target="h" id="f"></form><script>document.getElementById('f').submit(); alert('Absen Berhasil!');</script>""", height=0)
+            st.success("Terkirim!"); time.sleep(1); st.rerun()
+    else:
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
-        h_kerja = st.text_area("Uraian Hasil Kerja/Output:")
+        h_kerja = st.text_area("Uraian Hasil Kerja:")
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
-            res = requests.post(SCRIPT_LAPKIN, json=payload)
-            if "Success" in res.text:
-                st.success("Tersimpan!"); time.sleep(1); st.rerun()
+            requests.post(SCRIPT_LAPKIN, json=payload)
+            st.success("Tersimpan!"); time.sleep(1); st.rerun()
+
+@st.dialog("Advanced Rekap Excel", width="large")
+def pop_rekap_advanced():
+    st.markdown("### 📊 FILTER REKAP")
+    c1, c2 = st.columns(2)
+    with c1: r_bulan = st.selectbox("Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
+    with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
+    c3, c4 = st.columns(2)
+    with c3: r_kat = st.selectbox("Kategori:", ["SEMUA", "PNS", "PPPK"])
+    with c4: 
+        opts = ["-- Semua Nama --"]
+        if r_kat == "PNS": opts += MASTER_PNS
+        elif r_kat == "PPPK": opts += MASTER_PPPK
+        else: opts += list(DATABASE_INFO.keys())
+        r_nama = st.selectbox("Pilih Nama:", opts)
+
+    if st.button("📊 GENERATE REKAP EXCEL", use_container_width=True):
+        try:
+            r1, r2 = requests.get(f"{URL_PNS}&n={random.random()}").text, requests.get(f"{URL_PPPK}&n={random.random()}").text
+            df = pd.concat([pd.read_csv(StringIO(r1)), pd.read_csv(StringIO(r2))], ignore_index=True)
+            df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
+            df = df[df.iloc[:, 0].dt.year == int(r_tahun)]
+            if r_bulan != "SEPANJANG TAHUN": df = df[df.iloc[:, 0].dt.month == LIST_BULAN.index(r_bulan)+1]
+            if r_nama != "-- Semua Nama --": df = df[df.iloc[:, 1] == r_nama]
+            elif r_kat == "PNS": df = df[df.iloc[:, 1].isin(MASTER_PNS)]
+            elif r_kat == "PPPK": df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False, sheet_name="Rekap")
+            st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_kat}.xlsx", use_container_width=True)
+        except: st.error("Gagal menarik data.")
+
+@st.dialog("Download Lapkin Bulanan")
+def pop_cetak():
+    c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
+    c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
+    if st.button("📊 PROSES DOWNLOAD LAPKIN", use_container_width=True):
+        try:
+            raw = requests.get(f"{URL_LAPKIN}&n={random.random()}").text
+            df = pd.read_csv(StringIO(raw))
+            df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
+            df_f = df[(df.iloc[:, 1] == c_n) & (df.iloc[:, 0].dt.month == LIST_BULAN.index(c_b)+1)].copy()
+            df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
+            if not df_f.empty:
+                info = DATABASE_INFO[c_n]
+                out = BytesIO()
+                with pd.ExcelWriter(out, engine='openpyxl') as writer:
+                    header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Bulan", c_b], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Hasil", "Ket"]]
+                    body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Melaksanakan tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
+                    pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
+                    pd.DataFrame(body).to_excel(writer, startrow=8, index=False, header=False, sheet_name="Lapkin")
+                st.download_button("📥 KLIK DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", use_container_width=True)
+            else: st.warning("Data tidak ditemukan.")
+        except: st.error("Gagal menarik data.")
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
-
 _, mid, _ = st.columns([0.1, 5, 0.1])
 with mid:
     col_a, col_b, col_c, col_d = st.columns(4)
     with col_a: 
         if st.button("🔄 REFRESH"): st.rerun()
-    with col_b: 
-        pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
-    with col_c: st.button("📥 REKAP")
-    with col_d: st.button("🖨️ DOWNLOAD")
+    with col_b: pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
+    with col_c: 
+        if st.button("📥 REKAP"): pop_rekap_advanced()
+    with col_d: 
+        if st.button("🖨️ DOWNLOAD"): pop_cetak()
 
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
