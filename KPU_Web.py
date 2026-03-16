@@ -2,17 +2,23 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import StringIO, BytesIO
-from datetime import datetime
+from datetime import datetime, timedelta
+import pytz # Library untuk zona waktu
 import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub Web", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Hub v40.0", layout="wide", page_icon="🏛️")
 
+# Database Zona Waktu WITA
+wita_tz = pytz.timezone('Asia/Makassar')
+
+# --- CSS: CENTER & RAPAT ---
 st.markdown("""
     <style>
     .stApp { background-color: #0F172A; }
-    .header-box { text-align: center; padding: 10px; color: #F59E0B; font-size: 38px; font-weight: bold; margin-bottom: 20px; }
+    .header-box { text-align: center; color: #F59E0B; font-size: 38px; font-weight: bold; margin-bottom: 5px; }
+    .clock-box { text-align: center; color: white; font-size: 20px; margin-bottom: 20px; font-family: monospace; }
     .employee-card {
         background-color: #1E293B;
         padding: 12px 20px;
@@ -28,9 +34,13 @@ st.markdown("""
     .status-hadir { color: #10B981; }
     .status-alpa { color: #EF4444; }
     .status-terlambat { color: #F59E0B; }
-    .stButton>button { border-radius: 8px; font-weight: bold; width: 100%; }
-    /* Menghilangkan padding sidebar agar bersih */
+    
+    /* Menghilangkan padding sidebar & menyempitkan layout tengah */
     [data-testid="stSidebar"] { display: none; }
+    .block-container { max-width: 900px; padding-top: 2rem; }
+    
+    /* Style Tombol agar Rapat */
+    .stButton>button { border-radius: 8px; font-weight: bold; width: 100%; border: 1px solid #475569; background-color: #1e293b; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,8 +86,7 @@ DATABASE_INFO = {
 
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. DIALOGS (POP-UPS) ---
-
+# --- 3. DIALOGS ---
 @st.dialog("Update Data Pegawai")
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
@@ -89,85 +98,68 @@ def pop_update(nama):
         h_kerja = st.text_area("Uraian Hasil Kerja/Output:")
     
     if st.button("🚀 KIRIM DATA"):
-        if tipe == "Sore (Laporan Kerja)" and not h_kerja.strip():
-            st.error("Uraian kerja wajib diisi!")
-        else:
-            info = DATABASE_INFO[nama]
-            payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
-            with st.spinner("Mengirim..."):
-                res = requests.post(SCRIPT_URL, json=payload)
-                if "Success" in res.text:
-                    st.success("Berhasil!")
-                    time.sleep(1)
-                    st.rerun()
+        info = DATABASE_INFO[nama]
+        payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
+        res = requests.post(SCRIPT_URL, json=payload)
+        if "Success" in res.text:
+            st.success("Berhasil!")
+            time.sleep(1)
+            st.rerun()
 
 @st.dialog("Cetak Lapkin Bulanan")
 def pop_cetak():
-    st.write("Silakan pilih periode dan pegawai")
-    c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now().month-1)
+    c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
-    
     if st.button("📊 GENERATE EXCEL"):
-        try:
-            raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
-            df_l = pd.read_csv(StringIO(raw))
-            df_l.iloc[:, 0] = pd.to_datetime(df_l.iloc[:, 0], dayfirst=True, errors='coerce')
-            bulan_idx = LIST_BULAN.index(c_b) + 1
-            df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == bulan_idx)].copy()
-            df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
-            
-            if df_f.empty:
-                st.warning("Data tidak ditemukan.")
-            else:
-                info = DATABASE_INFO[c_n]
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    header = [
-                        ["LAPORAN KERJA HARIAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [],
-                        ["", "Bulan", f": {c_b}"], ["", "Nama", f": {c_n.upper()}"],
-                        ["", "NIP", f": {info[0]}"], ["", "Jabatan", f": {info[1]}"], [],
-                        ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja", "Keterangan"]
-                    ]
-                    body = []
-                    for i, (_, row) in enumerate(df_f.iterrows(), 1):
-                        body.append([i, row.iloc[0].strftime('%d %B %Y'), f"Tugas {info[1]}", row.iloc[5], row.iloc[4]])
-                    pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
-                    pd.DataFrame(body).to_excel(writer, startrow=9, index=False, header=False, sheet_name="Lapkin")
-                
-                st.download_button(label="📥 DOWNLOAD SEKARANG", data=output.getvalue(), file_name=f"LAPKIN_{c_n}_{c_b}.xlsx")
-        except:
-            st.error("Gagal menarik data.")
+        raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
+        df_l = pd.read_csv(StringIO(raw))
+        df_l.iloc[:, 0] = pd.to_datetime(df_l.iloc[:, 0], dayfirst=True, errors='coerce')
+        bulan_idx = LIST_BULAN.index(c_b) + 1
+        df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == bulan_idx)].copy()
+        df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
+        if not df_f.empty:
+            info = DATABASE_INFO[c_n]
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as writer:
+                header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Bulan", c_b], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Hasil", "Ket"]]
+                body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
+                pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
+                pd.DataFrame(body).to_excel(writer, startrow=8, index=False, header=False, sheet_name="Lapkin")
+            st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx")
+        else: st.warning("Data tidak ditemukan.")
 
-# --- 4. MAIN UI ---
-st.markdown(f'<div class="header-box">🏛️ MONITORING KPU HSS<br><span style="font-size:20px; color:white;">{datetime.now().strftime("%H:%M:%S WITA")}</span></div>', unsafe_allow_html=True)
+# --- 4. MAIN UI (CENTERED) ---
+st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
 
-# BARIS TOMBOL UTAMA
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    if st.button("🔄 REFRESH DATA"): st.rerun()
-with c2:
-    st.button("📅 " + datetime.now().strftime("%d %b %Y"))
-with c3:
-    st.button("📥 REKAP ABSENSI")
-with c4:
-    # TOMBOL CETAK LAPKIN DI SINI
-    if st.button("🖨️ CETAK LAPKIN"):
-        pop_cetak()
+# BARIS TOMBOL (Dibuat lebih rapat dengan kolom kosong di samping)
+_, mid, _ = st.columns([0.1, 5, 0.1])
+with mid:
+    col_a, col_b, col_c, col_d = st.columns(4)
+    with col_a:
+        if st.button("🔄 REFRESH"): st.rerun()
+    with col_b:
+        # TANGGAL SEKARANG BISA DIGANTI (Date Input)
+        pilih_tgl = st.date_input("Tanggal", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
+    with col_c:
+        st.button("📥 REKAP")
+    with col_d:
+        if st.button("🖨️ LAPKIN"): pop_cetak()
 
-# --- 5. DASHBOARD PEGAWAI ---
+# TABEL PNS / PPPK
 tab_pns, tab_pppk = st.tabs(["👥 PEGAWAI PNS", "👥 PEGAWAI PPPK"])
 
-def render_ui(url, master):
+def render_ui(url, master, tgl_target):
     res = requests.get(f"{url}&nc={random.random()}", timeout=15)
     df = pd.read_csv(StringIO(res.text))
-    today_str = datetime.now().strftime('%d/%m/%Y')
-    today_alt = datetime.now().strftime('%Y-%m-%d')
+    t_str = tgl_target.strftime('%d/%m/%Y')
+    t_alt = tgl_target.strftime('%Y-%m-%d')
     
     log = {}
     df.columns = df.columns.str.strip()
     for _, r in df.iterrows():
         ts = str(r.iloc[0])
-        if today_str in ts or today_alt in ts:
+        if t_str in ts or t_alt in ts:
             nama = str(r.iloc[1]).strip()
             dt = pd.to_datetime(ts, dayfirst=True, errors='coerce')
             if pd.isna(dt): continue
@@ -182,16 +174,14 @@ def render_ui(url, master):
         st.markdown(f"""
             <div class="employee-card">
                 <div class="emp-name">{i}. {p}</div>
-                <div class="emp-time">Masuk: <b>{d['m']}</b></div>
-                <div class="emp-time">Pulang: <b>{d['p']}</b></div>
+                <div class="emp-time">M: <b>{d['m']}</b></div>
+                <div class="emp-time">P: <b>{d['p']}</b></div>
                 <div class="emp-status {st_cls}">{d['k']}</div>
             </div>
         """, unsafe_allow_html=True)
-        
-        if st.button(f"Update ✅", key=f"btn_{p}"):
-            pop_update(p)
+        if st.button(f"Update ✅", key=f"btn_{p}"): pop_update(p)
 
 with tab_pns:
-    render_ui(URL_PNS, list(DATABASE_INFO.keys())[:17])
+    render_ui(URL_PNS, list(DATABASE_INFO.keys())[:17], pilih_tgl)
 with tab_pppk:
-    render_ui(URL_PPPK, list(DATABASE_INFO.keys())[17:])
+    render_ui(URL_PPPK, list(DATABASE_INFO.keys())[17:], pilih_tgl)
