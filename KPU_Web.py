@@ -7,7 +7,7 @@ import random
 import time
 
 # --- SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v34.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v35.0", layout="wide", page_icon="🏛️")
 
 # --- KONFIGURASI URL ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -53,97 +53,95 @@ MASTER_PNS = list(DATABASE_INFO.keys())[:17]
 MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-def get_safe_data(url):
+def get_clean_data(url):
     try:
         res = requests.get(f"{url}&nc={random.random()}", timeout=15)
         df = pd.read_csv(StringIO(res.text))
         df.columns = df.columns.str.strip()
-        # Perbaikan Error di Gambar: Memaksa kolom 0 menjadi datetime dan buang data rusak
+        # Konversi kolom pertama secara paksa, yang error jadi NaT
         df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
-        return df.dropna(subset=[df.columns[0]])
+        # Hapus baris yang tanggalnya NaT (Rusak/Kosong)
+        df = df[df.iloc[:, 0].notna()]
+        return df
     except:
         return None
 
 # --- UI START ---
 st.title("🏛️ KPU HSS - MONITORING HUB")
-st.write(f"Waktu Sekarang: **{datetime.now().strftime('%H:%M:%S WITA')}**")
+st.write(f"Waktu: **{datetime.now().strftime('%H:%M:%S WITA')}**")
 
-tab_dash, tab_input, tab_cetak = st.tabs(["📊 DASHBOARD MONITORING", "📝 INPUT LAPORAN", "🖨️ CETAK LAPKIN"])
+tab_dash, tab_input, tab_cetak = st.tabs(["📊 DASHBOARD", "📝 INPUT", "🖨️ CETAK"])
 
 with tab_dash:
     col1, col2 = st.columns(2)
-    def render_dash(url, master, title):
-        df = get_safe_data(url)
+    def render(url, master, title):
         st.write(f"### {title}")
+        df = get_clean_data(url)
         if df is not None:
-            today = datetime.now().date()
-            # Filter tanggal hari ini dengan aman
-            df_today = df[df.iloc[:, 0].dt.date == today]
+            # CARA BARU FILTER TANGGAL (Lebih aman dari AttributeError)
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            df['tgl_temp'] = df.iloc[:, 0].dt.strftime('%Y-%m-%d')
+            df_today = df[df['tgl_temp'] == today_str]
+            
             log = {}
             for _, r in df_today.iterrows():
-                nama, jam = str(r.iloc[1]).strip(), r.iloc[0]
+                nama, jam_dt = str(r.iloc[1]).strip(), r.iloc[0]
                 if nama not in log:
-                    log[nama] = {"m": jam.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if jam.hour < 9 else "TERLAMBAT"}
-                if jam.hour >= 15:
-                    log[nama]["p"] = jam.strftime("%H:%M")
+                    log[nama] = {"m": jam_dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if jam_dt.hour < 9 else "TERLAMBAT"}
+                if jam_dt.hour >= 15:
+                    log[nama]["p"] = jam_dt.strftime("%H:%M")
             
-            final_rows = []
+            rows = []
             for i, p in enumerate(master, 1):
                 d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
-                final_rows.append({"No": i, "Nama Pegawai": p, "M": d['m'], "P": d['p'], "Status": d['k']})
-            st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
+                rows.append({"No": i, "Nama": p, "M": d['m'], "P": d['p'], "Status": d['k']})
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         else:
-            st.error(f"Gagal memuat data {title}")
+            st.error(f"Gagal memuat {title}")
 
-    with col1: render_dash(URL_PNS, MASTER_PNS, "PNS")
-    with col2: render_dash(URL_PPPK, MASTER_PPPK, "PPPK")
+    with col1: render(URL_PNS, MASTER_PNS, "PNS")
+    with col2: render(URL_PPPK, MASTER_PPPK, "PPPK")
 
 with tab_input:
-    st.subheader("Form Update Laporan")
-    with st.form("input_form"):
-        f_nama = st.selectbox("Nama Pegawai", list(DATABASE_INFO.keys()))
-        f_tipe = st.radio("Tipe Laporan", ["Datang (Pagi)", "Sore (Lapkin)"])
-        f_stat = "Hadir"
-        f_hasil = "-"
-        if f_tipe == "Sore (Lapkin)":
-            f_stat = st.selectbox("Status", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
-            f_hasil = st.text_area("Uraian Hasil Kerja/Output")
+    st.subheader("Update Laporan")
+    with st.form("in_form"):
+        n = st.selectbox("Nama", list(DATABASE_INFO.keys()))
+        t = st.radio("Tipe", ["Pagi", "Sore"])
+        s = "Hadir"
+        h = "-"
+        if t == "Sore":
+            s = st.selectbox("Status", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
+            h = st.text_area("Hasil Kerja")
         
-        if st.form_submit_button("KIRIM KE SPREADSHEET"):
-            info = DATABASE_INFO[f_nama]
-            payload = {"nama": f_nama, "nip": info[0], "jabatan": info[1], "status": f_stat, "hasil": f_hasil}
-            try:
-                requests.post(SCRIPT_URL, json=payload, timeout=10)
-                st.success(f"Sukses mengupdate {f_nama}!")
-                time.sleep(1)
-                st.rerun()
-            except:
-                st.error("Gagal mengirim data.")
+        if st.form_submit_button("KIRIM"):
+            info = DATABASE_INFO[n]
+            payload = {"nama": n, "nip": info[0], "jabatan": info[1], "status": s, "hasil": h}
+            requests.post(SCRIPT_URL, json=payload)
+            st.success("Terkirim!")
+            time.sleep(1); st.rerun()
 
 with tab_cetak:
-    st.subheader("Generate Laporan Excel")
-    c_bulan = st.selectbox("Pilih Bulan", LIST_BULAN, index=datetime.now().month-1)
-    c_nama = st.selectbox("Nama Pegawai", list(DATABASE_INFO.keys()), key="c_p")
+    st.subheader("Cetak Excel")
+    c_b = st.selectbox("Bulan", LIST_BULAN, index=datetime.now().month-1)
+    c_n = st.selectbox("Nama Pegawai", list(DATABASE_INFO.keys()), key="cn")
     
-    if st.button("Download Excel"):
-        df_l = get_safe_data(URL_LAPKIN)
+    if st.button("Generate"):
+        df_l = get_clean_data(URL_LAPKIN)
         if df_l is not None:
-            idx_b = LIST_BULAN.index(c_bulan) + 1
-            # Filter Nama, Bulan, dan Pastikan ada isi Hasil Kerja
-            df_f = df_l[(df_l.iloc[:, 1] == c_nama) & (df_l.iloc[:, 0].dt.month == idx_b)].copy()
+            idx = LIST_BULAN.index(c_b) + 1
+            df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == idx)].copy()
             df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
             
             if not df_f.empty:
-                info = DATABASE_INFO[c_nama]
+                info = DATABASE_INFO[c_n]
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                    header = [["LAPORAN KERJA HARIAN"], ["KPU KABUPATEN HSS"], [], ["Nama", c_nama], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Hasil", "Ket"]]
+                    header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Hasil", "Ket"]]
                     body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
                     pd.DataFrame(body).to_excel(writer, startrow=7, index=False, header=False, sheet_name="Lapkin")
-                st.download_button("📥 Klik Download", out.getvalue(), f"LAPKIN_{c_nama}.xlsx")
-            else:
-                st.warning("Data sore tidak ditemukan.")
+                st.download_button("📥 Download", out.getvalue(), f"LAPKIN_{c_n}.xlsx")
+            else: st.warning("Data tidak ada.")
 
-if st.button("🔄 REFRESH SEMUA DATA"):
+if st.button("🔄 REFRESH"):
     st.rerun()
