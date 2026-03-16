@@ -6,21 +6,15 @@ from datetime import datetime
 import random
 import time
 
-# --- PENGATURAN HALAMAN ---
-st.set_page_config(page_title="KPU HSS Presence Hub v32.0", layout="wide", page_icon="🏛️")
+# --- SETUP PAGE ---
+st.set_page_config(page_title="KPU HSS Presence Hub v33.0", layout="wide")
 
-# CSS Custom agar tampilan tetap profesional dan gelap
-st.markdown("""
-    <style>
-    .stApp { background-color: #0F172A; }
-    [data-testid="stMetricValue"] { font-size: 28px; color: #F59E0B; }
-    .stTab { background-color: transparent !important; }
-    .stButton>button { border-radius: 12px; height: 3em; font-weight: bold; }
-    .stTable { background-color: #1E293B; border-radius: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+# Link yang Abang berikan (Sudah saya masukkan kembali)
+URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
+URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
+URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
+SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysGislOC0219H1_sqib7TblYTTUngiYYIzaUtLG4_tEfxUl6OsnYLzjvqpj1POCRc/exec"
 
-# --- DATABASE PEGAWAI ---
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. HSS"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. HSS"],
@@ -59,100 +53,35 @@ MASTER_PNS = list(DATABASE_INFO.keys())[:17]
 MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- URL KONFIGURASI ---
-URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
-URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
-URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
-SCRIPT_URL = "https://script.google.com/macros/s/AKfycbysGislOC0219H1_sqib7TblYTTUngiYYIzaUtLG4_tEfxUl6OsnYLzjvqpj1POCRc/exec"
+def get_data(url):
+    """ Fungsi penarik data dengan proteksi timeout dan anti-cache """
+    try:
+        # Tambahkan header User-Agent agar tidak dianggap bot oleh Google
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        # Tambahkan angka acak di URL agar Google memberikan data terbaru (anti-cache)
+        clean_url = f"{url}&cache_bust={random.randint(1, 99999)}"
+        response = requests.get(clean_url, headers=headers, timeout=15)
+        if response.status_code == 200:
+            return pd.read_csv(StringIO(response.text))
+        else:
+            return None
+    except:
+        return None
 
-def format_tgl_indo(dt):
-    return f"{dt.day:02d} {LIST_BULAN[dt.month-1]} {dt.year}"
+# --- UI ---
+st.title("🏛️ KPU HSS - MONITORING HUB")
+st.write(f"Tanggal: **{datetime.now().strftime('%d %B %Y')}** | Waktu: **{datetime.now().strftime('%H:%M:%S WITA')}**")
 
-# --- UI HEADER ---
-st.title("🏛️ KPU HSS - MONITORING ABSENSI & KINERJA")
-st.write(f"Waktu Sekarang: **{datetime.now().strftime('%H:%M:%S WITA')}**")
+tab_dash, tab_input, tab_cetak = st.tabs(["📊 DASHBOARD", "📝 INPUT LAPORAN", "🖨️ CETAK LAPKIN"])
 
-# Layout: Dashboard Utama & Panel Kontrol
-col_main, col_ctrl = st.columns([2.2, 1])
-
-with col_ctrl:
-    st.subheader("📝 Update Pegawai")
-    with st.expander("Buka Form Laporan", expanded=True):
-        nama = st.selectbox("Pilih Nama Pegawai", list(DATABASE_INFO.keys()))
-        tipe = st.radio("Jenis Laporan", ["Datang (Pagi)", "Sore (Lapkin)"])
-        
-        status_fix = "Hadir"
-        hasil_kerja = "-"
-        
-        if tipe == "Sore (Lapkin)":
-            status_fix = st.selectbox("Status Kehadiran", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
-            hasil_kerja = st.text_area("Uraian Hasil Kerja/Output")
-            
-        if st.button("🚀 KIRIM LAPORAN"):
-            if tipe == "Sore (Lapkin)" and not hasil_kerja.strip():
-                st.warning("Uraian hasil kerja tidak boleh kosong!")
-            else:
-                info = DATABASE_INFO[nama]
-                payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": status_fix, "hasil": hasil_kerja}
-                try:
-                    r = requests.post(SCRIPT_URL, json=payload)
-                    if "Success" in r.text:
-                        st.success(f"Berhasil! Data {nama} telah diperbarui di Spreadsheet.")
-                        time.sleep(1)
-                        st.rerun()
-                except:
-                    st.error("Gagal mengirim data ke Google Sheets.")
-
-    st.write("---")
-    st.subheader("📥 Download Lapkin")
-    bulan_sel = st.selectbox("Bulan", LIST_BULAN, index=datetime.now().month-1)
-    nama_sel = st.selectbox("Nama Pegawai", list(DATABASE_INFO.keys()), key="lapkin_name")
+with tab_dash:
+    col1, col2 = st.columns(2)
     
-    if st.button("🖨️ GENERATE EXCEL"):
-        try:
-            raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
-            df_raw = pd.read_csv(StringIO(raw))
-            df_raw.iloc[:, 0] = pd.to_datetime(df_raw.iloc[:, 0], errors='coerce')
-            
-            bulan_idx = LIST_BULAN.index(bulan_sel) + 1
-            df_f = df_raw[(df_raw.iloc[:, 1] == nama_sel) & (df_raw.iloc[:, 0].dt.month == bulan_idx)].copy()
-            df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
-            
-            if df_f.empty:
-                st.error("Data kinerja sore tidak ditemukan untuk filter ini.")
-            else:
-                info = DATABASE_INFO[nama_sel]
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    header = [
-                        ["LAPORAN KERJA HARIAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [],
-                        ["", "Bulan", f": {bulan_sel}"], ["", "Nama", f": {nama_sel.upper()}"],
-                        ["", "NIP", f": {info[0]}"], ["", "Jabatan", f": {info[1]}"],
-                        ["", "Unit Kerja", f": {info[2]}"], [],
-                        ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja / Output", "Keterangan"]
-                    ]
-                    body = []
-                    for i, (_, row) in enumerate(df_f.iterrows(), 1):
-                        body.append([i, format_tgl_indo(row.iloc[0]), f"Melaksanakan tugas sebagai {info[1]}", row.iloc[5], row.iloc[4]])
-                    
-                    pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
-                    pd.DataFrame(body).to_excel(writer, startrow=10, index=False, header=False, sheet_name="Lapkin")
-                
-                st.download_button(label="📁 Download File Excel", data=output.getvalue(), file_name=f"LAPKIN_{nama_sel}_{bulan_sel}.xlsx")
-        except:
-            st.error("Terjadi masalah saat menarik data database.")
-
-with col_main:
-    st.subheader("📊 Dashboard Monitoring Hari Ini")
-    tab_pns, tab_pppk = st.tabs(["PNS (ASN)", "PPPK (NON-ASN)"])
-    
-    def render_absensi(url, master):
-        try:
-            res = requests.get(f"{url}&nc={random.random()}", timeout=10)
-            df = pd.read_csv(StringIO(res.text))
+    def display_status(url, master, title):
+        df = get_data(url)
+        if df is not None:
             df.columns = df.columns.str.strip()
             df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
-            
             df_today = df[df.iloc[:, 0].dt.date == datetime.now().date()]
             
             log = {}
@@ -163,19 +92,67 @@ with col_main:
                 if jam_p.hour >= 15:
                     log[nama_p]["p"] = jam_p.strftime("%H:%M")
             
-            final_data = []
+            final = []
             for i, p in enumerate(master, 1):
                 d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
-                final_data.append({"No": i, "Nama": p, "M": d['m'], "P": d['p'], "Status": d['k']})
+                final.append({"No": i, "Nama": p, "M": d['m'], "P": d['p'], "Status": d['k']})
             
-            st.table(pd.DataFrame(final_data))
-        except:
-            st.error("Gagal terhubung ke Database Google Sheets. Cek Publish CSV-nya.")
+            st.write(f"### {title}")
+            st.dataframe(pd.DataFrame(final), use_container_width=True, hide_index=True)
+        else:
+            st.error(f"⚠️ Gagal memuat data {title}. Silakan cek status 'Publish to Web' di Google Sheets.")
 
-    with tab_pns:
-        render_absensi(URL_PNS, MASTER_PNS)
-    with tab_pppk:
-        render_absensi(URL_PPPK, MASTER_PPPK)
+    with col1: display_status(URL_PNS, MASTER_PNS, "PNS")
+    with col2: display_status(URL_PPPK, MASTER_PPPK, "PPPK")
 
-if st.button("🔄 Segarkan Data Dashboard"):
+with tab_input:
+    st.subheader("Form Update Kehadiran & Lapkin")
+    with st.form("form_input"):
+        nama_in = st.selectbox("Pilih Nama", list(DATABASE_INFO.keys()))
+        tipe_in = st.radio("Jenis Laporan", ["Datang (Pagi)", "Lapkin (Sore)"])
+        status_in = "Hadir"
+        hasil_in = "-"
+        if tipe_in == "Lapkin (Sore)":
+            status_in = st.selectbox("Status", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
+            hasil_in = st.text_area("Uraian Hasil Kerja")
+        
+        if st.form_submit_button("KIRIM DATA"):
+            info = DATABASE_INFO[nama_in]
+            payload = {"nama": nama_in, "nip": info[0], "jabatan": info[1], "status": status_in, "hasil": hasil_in}
+            try:
+                res = requests.post(SCRIPT_URL, json=payload, timeout=10)
+                st.success(f"Data {nama_in} berhasil dikirim!")
+                time.sleep(1)
+                st.rerun()
+            except:
+                st.error("Gagal mengirim data.")
+
+with tab_cetak:
+    st.subheader("Cetak Laporan Kinerja (Excel)")
+    c_bln = st.selectbox("Pilih Bulan", LIST_BULAN, index=datetime.now().month-1)
+    c_nama = st.selectbox("Pilih Nama Pegawai", list(DATABASE_INFO.keys()))
+    
+    if st.button("Generate Excel"):
+        df_lap = get_data(URL_LAPKIN)
+        if df_lap is not None:
+            df_lap.iloc[:, 0] = pd.to_datetime(df_lap.iloc[:, 0], errors='coerce')
+            idx_bln = LIST_BULAN.index(c_bln) + 1
+            df_f = df_lap[(df_lap.iloc[:, 1] == c_nama) & (df_lap.iloc[:, 0].dt.month == idx_bln)].copy()
+            df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
+            
+            if not df_f.empty:
+                info = DATABASE_INFO[c_nama]
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    header = [["LAPORAN KERJA HARIAN"], ["KPU KABUPATEN HSS"], [], ["Bulan", c_bln], ["Nama", c_nama], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Output", "Ket"]]
+                    body = []
+                    for i, (_, r) in enumerate(df_f.iterrows(), 1):
+                        body.append([i, f"{r.iloc[0].day} {c_bln} {r.iloc[0].year}", f"Tugas {info[1]}", r.iloc[5], r.iloc[4]])
+                    pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
+                    pd.DataFrame(body).to_excel(writer, startrow=8, index=False, header=False, sheet_name="Lapkin")
+                st.download_button("📥 Download Excel", output.getvalue(), f"LAPKIN_{c_nama}.xlsx")
+            else:
+                st.warning("Data tidak ditemukan.")
+
+if st.button("🔄 REFRESH DASHBOARD"):
     st.rerun()
