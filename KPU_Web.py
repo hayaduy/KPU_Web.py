@@ -8,7 +8,7 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v41.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v42.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 # --- CSS: BARIS RAPAT & SATU BARIS LURUS ---
@@ -18,32 +18,28 @@ st.markdown("""
     .header-box { text-align: center; color: #F59E0B; font-size: 32px; font-weight: bold; margin-bottom: 0px; }
     .clock-box { text-align: center; color: white; font-size: 18px; margin-bottom: 15px; font-family: monospace; }
     
-    /* Desain Baris Sangat Rapat & Satu Baris Lurus */
     .employee-card {
         background-color: #1E293B;
         padding: 8px 15px;
         border-radius: 8px;
         display: flex;
         align-items: center;
-        justify-content: bace-between;
         margin-bottom: 4px;
         border: 1px solid #334155;
     }
     .emp-name { flex: 3; color: white; font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .emp-time { flex: 1; color: #94A3B8; text-align: center; font-size: 13px; min-width: 80px; }
+    .emp-time { flex: 1.2; color: #94A3B8; text-align: center; font-size: 13px; min-width: 80px; }
     .emp-status { flex: 1; text-align: right; font-weight: bold; font-size: 13px; min-width: 90px; }
     
     .status-hadir { color: #10B981; }
     .status-alpa { color: #EF4444; }
     .status-terlambat { color: #F59E0B; }
     
-    /* Layout Tengah Rapat */
     .block-container { max-width: 1000px; padding-top: 1rem; }
     [data-testid="stSidebar"] { display: none; }
     
-    /* Merampingkan Tab */
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { height: 40px; border-radius: 5px; padding: 0 20px; }
+    .stTabs [data-baseweb="tab"] { height: 40px; border-radius: 5px; padding: 0 20px; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -136,7 +132,7 @@ def pop_cetak():
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
 
-# BARIS TOMBOL (RAPAT TENGAH)
+# BARIS TOMBOL
 _, mid, _ = st.columns([0.1, 5, 0.1])
 with mid:
     col_a, col_b, col_c, col_d = st.columns(4)
@@ -149,12 +145,10 @@ with mid:
     with col_d: 
         if st.button("🖨️ LAPKIN"): pop_cetak()
 
-# TABEL: SEMUA / PNS / PPPK
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
 
-def render_compact_ui(urls, masters, tgl_target):
-    # Mengambil data dari kedua link (PNS & PPPK) jika di Tab Semua
+def render_compact_ui(urls, masters, tgl_target, tab_name):
     all_dfs = []
     for u in urls:
         try:
@@ -182,10 +176,9 @@ def render_compact_ui(urls, masters, tgl_target):
         d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
         st_cls = "status-hadir" if d['k'] == "HADIR" else "status-terlambat" if d['k'] == "TERLAMBAT" else "status-alpa"
         
-        # UI BARIS (SEMUA DALAM 1 BARIS HORIZONTAL)
         row_container = st.container()
         with row_container:
-            c_data, c_btn = st.columns([8, 1.5]) # Kolom data lebar, kolom tombol kecil
+            c_data, c_btn = st.columns([8, 2])
             with c_data:
                 st.markdown(f"""
                     <div class="employee-card">
@@ -196,11 +189,13 @@ def render_compact_ui(urls, masters, tgl_target):
                     </div>
                 """, unsafe_allow_html=True)
             with c_btn:
-                if st.button(f"Update", key=f"btn_{p}_{i}"): pop_update(p)
+                # PERBAIKAN: Menambahkan tag tab_name agar KEY tombol unik
+                if st.button(f"Update", key=f"btn_{p}_{i}_{tab_name}"): 
+                    pop_update(p)
 
 with tab_all: 
-    render_compact_ui([URL_PNS, URL_PPPK], MASTER_SEMUA, pilih_tgl)
+    render_compact_ui([URL_PNS, URL_PPPK], MASTER_SEMUA, pilih_tgl, "all")
 with tab_pns: 
-    render_compact_ui([URL_PNS], MASTER_PNS, pilih_tgl)
+    render_compact_ui([URL_PNS], MASTER_PNS, pilih_tgl, "pns")
 with tab_pppk: 
-    render_compact_ui([URL_PPPK], MASTER_PPPK, pilih_tgl)
+    render_compact_ui([URL_PPPK], MASTER_PPPK, pilih_tgl, "pppk")
