@@ -6,10 +6,34 @@ from datetime import datetime
 import random
 import time
 
-# --- SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v36.0", layout="wide", page_icon="🏛️")
+# --- 1. SETUP & CSS (MENIRU UI DESKTOP) ---
+st.set_page_config(page_title="KPU HSS Presence Hub Web", layout="wide", page_icon="🏛️")
 
-# --- KONFIGURASI URL ---
+st.markdown("""
+    <style>
+    .stApp { background-color: #0F172A; }
+    .header-box { text-align: center; padding: 10px; color: #F59E0B; font-size: 38px; font-weight: bold; margin-bottom: 20px; }
+    .employee-card {
+        background-color: #1E293B;
+        padding: 12px 20px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        border: 1px solid #334155;
+    }
+    .emp-name { flex: 3; color: white; font-weight: bold; font-size: 15px; }
+    .emp-time { flex: 1.5; color: #94A3B8; text-align: center; font-size: 14px; }
+    .emp-status { flex: 1.5; text-align: right; font-weight: bold; font-size: 14px; }
+    .status-hadir { color: #10B981; }
+    .status-alpa { color: #EF4444; }
+    .status-terlambat { color: #F59E0B; }
+    /* Menghilangkan padding berlebih streamlit */
+    .block-container { padding-top: 2rem; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 2. CONFIGURATION & DATABASE ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -53,112 +77,140 @@ MASTER_PNS = list(DATABASE_INFO.keys())[:17]
 MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- APP START ---
-st.title("🏛️ KPU HSS - MONITORING HUB")
-st.write(f"Waktu: **{datetime.now().strftime('%H:%M:%S WITA')}**")
+# --- 3. HELPER FUNCTIONS ---
+def get_data(url):
+    try:
+        res = requests.get(f"{url}&nc={random.random()}", timeout=15)
+        return pd.read_csv(StringIO(res.text))
+    except: return None
 
-tab_dash, tab_input, tab_cetak = st.tabs(["📊 DASHBOARD", "📝 INPUT", "🖨️ CETAK"])
+def format_tgl_indo(dt):
+    return f"{dt.day:02d} {LIST_BULAN[dt.month-1]} {dt.year}"
 
-with tab_dash:
-    col1, col2 = st.columns(2)
+# --- 4. HEADER UI ---
+st.markdown(f'<div class="header-box">🏛️ MONITORING KPU HSS<br><span style="font-size:20px; color:white;">{datetime.now().strftime("%H:%M:%S WITA")}</span></div>', unsafe_allow_html=True)
 
-    def render_safe(url, master, title):
-        st.write(f"### {title}")
-        try:
-            res = requests.get(f"{url}&nc={random.random()}", timeout=15)
-            df = pd.read_csv(StringIO(res.text))
-            df.columns = df.columns.str.strip()
-            
-            # --- LOGIKA BARU: FILTER TANPA .DT (ANTI-ERROR) ---
-            today_str = datetime.now().strftime('%d/%m/%Y') # Format umum Google Sheets
-            today_str_alt = datetime.now().strftime('%Y-%m-%d') # Format alternatif
-            
-            log = {}
-            for _, r in df.iterrows():
-                row_raw_time = str(r.iloc[0])
-                # Cek apakah baris ini terjadi hari ini
-                if today_str in row_raw_time or today_str_alt in row_raw_time:
-                    nama = str(r.iloc[1]).strip()
-                    try:
-                        # Parsing waktu secara manual dari string timestamp
-                        # Contoh: "17/03/2026 08:30:00" -> ambil "08:30"
-                        full_dt = pd.to_datetime(row_raw_time, dayfirst=True, errors='coerce')
-                        if pd.isinstance(full_dt, pd.NaT): continue
-                        
-                        jam_val = full_dt.hour
-                        jam_str = full_dt.strftime("%H:%M")
-                        
-                        if nama not in log:
-                            log[nama] = {"m": jam_str, "p": "--:--", "k": "HADIR" if jam_val < 9 else "TERLAMBAT"}
-                        if jam_val >= 15:
-                            log[nama]["p"] = jam_str
-                    except:
-                        continue
-            
-            rows = []
-            for i, p in enumerate(master, 1):
-                d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
-                rows.append({"No": i, "Nama Pegawai": p, "M": d['m'], "P": d['p'], "Status": d['k']})
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-            
-        except Exception as e:
-            st.error(f"Gagal memuat {title}. Pastikan link CSV benar.")
+# Tombol Utama Berjejer
+c1, c2, c3, c4 = st.columns(4)
+with c1: 
+    if st.button("🔄 REFRESH DATA"): st.rerun()
+with c2: 
+    st.button("📅 " + datetime.now().strftime("%d %b %Y"))
+with c3:
+    if st.button("📥 REKAP ABSENSI"): st.info("Fitur Rekap Terintegrasi di Spreadsheet")
 
-    with col1: render_safe(URL_PNS, MASTER_PNS, "PNS")
-    with col2: render_safe(URL_PPPK, MASTER_PPPK, "PPPK")
+# --- 5. DASHBOARD MONITORING (TABEL CUSTOM) ---
+tab_pns, tab_pppk = st.tabs(["👥 PEGAWAI PNS", "👥 PEGAWAI PPPK"])
 
-with tab_input:
-    st.subheader("Update Laporan Kehadiran")
-    with st.form("in_form"):
-        n = st.selectbox("Nama", list(DATABASE_INFO.keys()))
-        t = st.radio("Tipe", ["Pagi", "Sore"])
-        s = "Hadir"
-        h = "-"
-        if t == "Sore":
-            s = st.selectbox("Status", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
-            h = st.text_area("Hasil Kerja")
-        
-        if st.form_submit_button("KIRIM"):
-            info = DATABASE_INFO[n]
-            payload = {"nama": n, "nip": info[0], "jabatan": info[1], "status": s, "hasil": h}
-            try:
-                requests.post(SCRIPT_URL, json=payload, timeout=10)
-                st.success(f"Update {n} Berhasil!")
-                time.sleep(1)
-                st.rerun()
-            except:
-                st.error("Gagal terhubung ke skrip.")
-
-with tab_cetak:
-    st.subheader("Cetak Excel Lapkin")
-    c_b = st.selectbox("Bulan", LIST_BULAN, index=datetime.now().month-1)
-    c_n = st.selectbox("Pegawai", list(DATABASE_INFO.keys()), key="cetak_n")
+def render_ui(url, master):
+    df = get_data(url)
+    today_str = datetime.now().strftime('%d/%m/%Y')
+    today_alt = datetime.now().strftime('%Y-%m-%d')
     
-    if st.button("Generate"):
-        try:
-            res = requests.get(f"{URL_LAPKIN}&nc={random.random()}")
-            df_l = pd.read_csv(StringIO(res.text))
-            # Konversi tanggal khusus untuk cetak (paksa)
-            df_l.iloc[:, 0] = pd.to_datetime(df_l.iloc[:, 0], dayfirst=True, errors='coerce')
-            df_l = df_l.dropna(subset=[df_l.columns[0]])
-            
-            idx = LIST_BULAN.index(c_b) + 1
-            df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == idx)].copy()
-            df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
-            
-            if not df_f.empty:
-                info = DATABASE_INFO[c_n]
-                out = BytesIO()
-                with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                    header = [["LAPORAN KERJA"], ["KPU KABUPATEN HSS"], [], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Output", "Ket"]]
-                    body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
-                    pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
-                    pd.DataFrame(body).to_excel(writer, startrow=8, index=False, header=False, sheet_name="Lapkin")
-                st.download_button("📥 Download", out.getvalue(), f"LAPKIN_{c_n}.xlsx")
-            else:
-                st.warning("Data tidak ditemukan.")
-        except:
-            st.error("Database Lapkin tidak terbaca.")
+    log = {}
+    if df is not None:
+        df.columns = df.columns.str.strip()
+        for _, r in df.iterrows():
+            ts = str(r.iloc[0])
+            if today_str in ts or today_alt in ts:
+                nama = str(r.iloc[1]).strip()
+                try:
+                    dt = pd.to_datetime(ts, dayfirst=True, errors='coerce')
+                    if pd.isna(dt): continue
+                    if nama not in log:
+                        log[nama] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
+                    if dt.hour >= 15: log[nama]["p"] = dt.strftime("%H:%M")
+                except: continue
 
-if st.button("🔄 REFRESH"):
-    st.rerun()
+    for i, p in enumerate(master, 1):
+        d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
+        st_cls = "status-hadir" if d['k'] == "HADIR" else "status-terlambat" if d['k'] == "TERLAMBAT" else "status-alpa"
+        
+        # MENGGAMBAR BARIS PEGAWAI (IDENTIK DENGAN PC)
+        st.markdown(f"""
+            <div class="employee-card">
+                <div class="emp-name">{i}. {p}</div>
+                <div class="emp-time">Masuk: <b>{d['m']}</b></div>
+                <div class="emp-time">Pulang: <b>{d['p']}</b></div>
+                <div class="emp-status {st_cls}">{d['k']}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # TOMBOL UPDATE (DI BAWAH SETIAP BARIS)
+        if st.button(f"Update Data {p}", key=f"btn_{p}"):
+            st.session_state.target = p
+            st.session_state.show_form = True
+
+with tab_pns: render_ui(URL_PNS, MASTER_PNS)
+with tab_pppk: render_ui(URL_PPPK, MASTER_PPPK)
+
+# --- 6. SIDEBAR: POP-UP UPDATE (MENGGANTIKAN MODAL PC) ---
+if st.session_state.get('show_form'):
+    with st.sidebar:
+        st.markdown(f"### 📝 Update: {st.session_state.target}")
+        tipe = st.radio("Pilih Waktu Laporan:", ["Pagi (Absen Datang)", "Sore (Laporan Kerja)"])
+        
+        st_fix = "Hadir"
+        h_kerja = "-"
+        
+        if tipe == "Sore (Laporan Kerja)":
+            st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
+            h_kerja = st.text_area("Uraian Hasil Kerja/Output hari ini:")
+        
+        if st.button("✅ KIRIM KE GOOGLE SHEETS"):
+            if tipe == "Sore (Laporan Kerja)" and not h_kerja.strip():
+                st.error("Uraian kerja wajib diisi!")
+            else:
+                info = DATABASE_INFO[st.session_state.target]
+                payload = {"nama": st.session_state.target, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
+                with st.spinner("Mengirim data..."):
+                    res = requests.post(SCRIPT_URL, json=payload)
+                    if "Success" in res.text:
+                        st.success("Data Berhasil Diperbarui!")
+                        st.session_state.show_form = False
+                        time.sleep(1)
+                        st.rerun()
+        if st.button("❌ Batal"):
+            st.session_state.show_form = False
+            st.rerun()
+
+# --- 7. SIDEBAR: CETAK LAPKIN (LOGIKA FULL) ---
+st.sidebar.write("---")
+st.sidebar.subheader("🖨️ Cetak Lapkin Bulanan")
+c_b = st.sidebar.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now().month-1)
+c_n = st.sidebar.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
+
+if st.sidebar.button("📊 GENERATE EXCEL"):
+    try:
+        raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
+        df_l = pd.read_csv(StringIO(raw))
+        df_l.iloc[:, 0] = pd.to_datetime(df_l.iloc[:, 0], dayfirst=True, errors='coerce')
+        
+        bulan_idx = LIST_BULAN.index(c_b) + 1
+        df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == bulan_idx)].copy()
+        df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
+        
+        if df_f.empty:
+            st.sidebar.warning("Data sore tidak ditemukan untuk bulan ini.")
+        else:
+            info = DATABASE_INFO[c_n]
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                # Header Format KPU
+                header = [
+                    ["LAPORAN KERJA HARIAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [],
+                    ["", "Bulan", f": {c_b}"], ["", "Nama", f": {c_n.upper()}"],
+                    ["", "NIP", f": {info[0]}"], ["", "Jabatan", f": {info[1]}"],
+                    ["", "Unit Kerja", f": {info[2]}"], [],
+                    ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja / Output", "Keterangan"]
+                ]
+                body = []
+                for i, (_, row) in enumerate(df_f.iterrows(), 1):
+                    body.append([i, format_tgl_indo(row.iloc[0]), f"Melaksanakan tugas sebagai {info[1]}", row.iloc[5], row.iloc[4]])
+                
+                pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
+                pd.DataFrame(body).to_excel(writer, startrow=10, index=False, header=False, sheet_name="Lapkin")
+            
+            st.sidebar.download_button(label="📥 Download File", data=output.getvalue(), file_name=f"LAPKIN_{c_n}_{c_b}.xlsx")
+    except Exception as e:
+        st.sidebar.error(f"Gagal memproses data: {e}")
