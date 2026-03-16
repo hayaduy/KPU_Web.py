@@ -10,7 +10,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v61.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v62.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -31,7 +31,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION ---
+# --- 2. DATABASE ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -41,7 +41,7 @@ FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
 FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
-# DATA MASTER HASIL MAPPING STRUKTUR.xlsx
+# Data Master dengan Mapping Atasan (Sekretaris & Kasubbag)
 DATABASE_INFO = {
     # PNS
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
@@ -106,7 +106,7 @@ def pop_update(nama):
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             requests.post(SCRIPT_LAPKIN, json=payload)
-            st.success("Tersimpan (Data Lama Diganti)!"); time.sleep(1); st.rerun()
+            st.success("Tersimpan!"); time.sleep(1); st.rerun()
 
 @st.dialog("Download Laporan Bulanan")
 def pop_cetak():
@@ -139,25 +139,26 @@ def pop_cetak():
                         ["Hasil Kinerja", ":"],
                         ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]
                     ]
-                    body = []
-                    for i, (_, r) in enumerate(df_f.iterrows()):
-                        tgl_raw = pd.to_datetime(r.iloc[0], dayfirst=True)
-                        body.append([i+1, tgl_raw.strftime('%d %B %Y'), f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] )
+                    body = [[i+1, pd.to_datetime(r.iloc[0], dayfirst=True).strftime('%d %B %Y'), f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] for i, (_, r) in enumerate(df_f.iterrows())]
+                    
+                    # FOOTER DUA KOLOM SESUAI GAMBAR
+                    footer_name_left = "Suwanto, SH., MH."
+                    footer_nip_left = "19720521 200912 1 001"
                     
                     footer = [
                         [],
                         ["", "", "", f"Kandangan, {tgl_footer}"],
-                        ["", "", "", "Menyetujui Atasan Langsung"],
+                        ["Mengetahui,", "", "", "Atasan Langsung,"],
+                        [info[2] if "Sekretaris" in info[1] else "Sekretaris,", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"],
                         [], [], [],
-                        ["", "", "", f"{info[5]}"], # NAMA ATASAN DINAMIS
-                        ["", "", "", f"NIP. {info[6]}"] # NIP ATASAN DINAMIS
+                        [footer_name_left, "", "", info[5]],
+                        [f"NIP. {footer_nip_left}", "", "", f"NIP. {info[6]}"]
                     ]
 
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
-                
-                st.download_button("📥 DOWNLOAD FORMAT RESMI", out.getvalue(), f"LAPORAN_{c_n}_{c_b}.xlsx", use_container_width=True)
+                st.download_button("📥 DOWNLOAD FORMAT RESMI", out.getvalue(), f"LAPORAN_{c_n}.xlsx", use_container_width=True)
             else: st.warning("Data tidak ditemukan.")
 
 # --- 5. MAIN UI ---
@@ -173,9 +174,8 @@ with mid:
         if st.button("📥 REKAP"): 
              df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
              if df1 is not None:
-                 out = BytesIO()
-                 pd.concat([df1, df2]).to_excel(out, index=False)
-                 st.download_button("📥 DOWNLOAD REKAP ALL", out.getvalue(), "REKAP_TOTAL.xlsx")
+                 out = BytesIO(); pd.concat([df1, df2]).to_excel(out, index=False)
+                 st.download_button("📥 REKAP TOTAL", out.getvalue(), "REKAP.xlsx")
     with col_d: 
         if st.button("🖨️ DOWNLOAD"): pop_cetak()
 
