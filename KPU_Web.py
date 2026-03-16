@@ -36,7 +36,7 @@ URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKo
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
 
 # GUNAKAN LINK SCRIPT TERBARU ABANG SETELAH REDEPLOY
-SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbwGlPXLHQa-c5tjeexiW0d4q62i5RGKL25itZKJ6I4/dev"
+SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbyiSGdP-YSyq8wD_LR2CI8Jqu1qQN5PoH8FznvJ7n1gakFcgKsfoQS9a1dfFTucmhWr/exec"
 
 FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
 FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
