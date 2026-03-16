@@ -8,18 +8,24 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v44.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v45.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
-# --- 2. CSS CUSTOM: LUXURY UI ---
+# --- 2. CSS CUSTOM: FIX POSISI & UI ---
 st.markdown("""
     <style>
     .stApp {
         background: linear-gradient(135deg, #450a0a 0%, #000000 50%, #7c2d12 100%);
         background-attachment: fixed;
     }
-    .header-box { text-align: center; color: #F59E0B; font-size: 32px; font-weight: bold; margin-bottom: 0px; }
-    .clock-box { text-align: center; color: white; font-size: 18px; margin-bottom: 15px; font-family: monospace; }
+    /* Memberi jarak agar judul tidak ketutupan ke atas */
+    .block-container { 
+        max-width: 1050px; 
+        padding-top: 4rem !important; 
+    }
+    
+    .header-box { text-align: center; color: #F59E0B; font-size: 32px; font-weight: bold; margin-bottom: 5px; }
+    .clock-box { text-align: center; color: white; font-size: 18px; margin-bottom: 20px; font-family: monospace; }
     
     .employee-card {
         background: rgba(255, 255, 255, 0.05);
@@ -47,7 +53,6 @@ st.markdown("""
         border-radius: 8px;
         font-weight: bold;
     }
-    .block-container { max-width: 1050px; padding-top: 1.5rem; }
     [data-testid="stSidebar"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
@@ -118,16 +123,11 @@ def pop_update(nama):
 @st.dialog("Advanced Rekap Excel", width="large")
 def pop_rekap_advanced():
     st.markdown("### 📊 FILTER PERIODE & PEGAWAI")
-    
     col_a, col_b = st.columns(2)
-    with col_a:
-        r_bulan = st.selectbox("Pilih Bulan:", LIST_BULAN_FULL)
-    with col_b:
-        r_tahun = st.selectbox("Pilih Tahun:", ["2024", "2025", "2026", "2027"], index=2)
-    
+    with col_a: r_bulan = st.selectbox("Pilih Bulan:", LIST_BULAN_FULL)
+    with col_b: r_tahun = st.selectbox("Pilih Tahun:", ["2024", "2025", "2026", "2027"], index=2)
     col_c, col_d = st.columns(2)
-    with col_c:
-        r_kat = st.selectbox("Kategori Pegawai:", ["SEMUA", "PNS", "PPPK"])
+    with col_c: r_kat = st.selectbox("Kategori Pegawai:", ["SEMUA", "PNS", "PPPK"])
     with col_d:
         options_nama = ["-- Semua Nama --"]
         if r_kat == "PNS": options_nama += MASTER_PNS
@@ -135,58 +135,50 @@ def pop_rekap_advanced():
         else: options_nama += list(DATABASE_INFO.keys())
         r_nama = st.selectbox("Pilih Nama (Opsional):", options_nama)
 
-    if st.button("📊 GENERATE REKAP EXCEL", use_container_width=True):
+    if st.button("📊 DOWNLOAD REKAP EXCEL", use_container_width=True):
         try:
             r1 = requests.get(f"{URL_PNS}&nc={random.random()}").text
             r2 = requests.get(f"{URL_PPPK}&nc={random.random()}").text
             df = pd.concat([pd.read_csv(StringIO(r1)), pd.read_csv(StringIO(r2))], ignore_index=True)
             df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
-            
-            # Filter Tahun
             df = df[df.iloc[:, 0].dt.year == int(r_tahun)]
-            
-            # Filter Bulan
             if r_bulan != "SEPANJANG TAHUN":
                 df = df[df.iloc[:, 0].dt.month == LIST_BULAN_FULL.index(r_bulan)]
+            if r_nama != "-- Semua Nama --": df = df[df.iloc[:, 1] == r_nama]
+            elif r_kat == "PNS": df = df[df.iloc[:, 1].isin(MASTER_PNS)]
+            elif r_kat == "PPPK": df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
             
-            # Filter Nama
-            if r_nama != "-- Semua Nama --":
-                df = df[df.iloc[:, 1] == r_nama]
-            elif r_kat == "PNS":
-                df = df[df.iloc[:, 1].isin(MASTER_PNS)]
-            elif r_kat == "PPPK":
-                df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
-            
-            if df.empty:
-                st.warning("Data tidak ditemukan untuk filter tersebut.")
+            if df.empty: st.warning("Data tidak ditemukan.")
             else:
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
                     df.to_excel(writer, index=False, sheet_name="Rekap_Absensi")
-                st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_kat}_{r_bulan}_{r_tahun}.xlsx")
-        except: st.error("Gagal menarik data absensi.")
+                st.download_button("📥 KLIK UNTUK SIMPAN EXCEL", out.getvalue(), f"REKAP_{r_kat}_{r_bulan}_{r_tahun}.xlsx", use_container_width=True)
+        except: st.error("Gagal menarik data.")
 
-@st.dialog("Cetak Lapkin Bulanan")
+@st.dialog("Download Lapkin Bulanan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
-    if st.button("📊 GENERATE EXCEL"):
-        raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
-        df_l = pd.read_csv(StringIO(raw))
-        df_l.iloc[:, 0] = pd.to_datetime(df_l.iloc[:, 0], dayfirst=True, errors='coerce')
-        idx = LIST_BULAN.index(c_b) + 1
-        df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == idx)].copy()
-        df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
-        if not df_f.empty:
-            info = DATABASE_INFO[c_n]
-            out = BytesIO()
-            with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Bulan", c_b], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Hasil", "Ket"]]
-                body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
-                pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
-                pd.DataFrame(body).to_excel(writer, startrow=8, index=False, header=False, sheet_name="Lapkin")
-            st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx")
-        else: st.warning("Data tidak ditemukan.")
+    if st.button("📊 PROSES DOWNLOAD EXCEL", use_container_width=True):
+        try:
+            raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
+            df_l = pd.read_csv(StringIO(raw))
+            df_l.iloc[:, 0] = pd.to_datetime(df_l.iloc[:, 0], dayfirst=True, errors='coerce')
+            idx = LIST_BULAN.index(c_b) + 1
+            df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == idx)].copy()
+            df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
+            if not df_f.empty:
+                info = DATABASE_INFO[c_n]
+                out = BytesIO()
+                with pd.ExcelWriter(out, engine='openpyxl') as writer:
+                    header = [["LAPORAN KERJA HARIAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [], ["Bulan", c_b], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja", "Keterangan"]]
+                    body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
+                    pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
+                    pd.DataFrame(body).to_excel(writer, startrow=9, index=False, header=False, sheet_name="Lapkin")
+                st.download_button("📥 DOWNLOAD LAPKIN SEKARANG", out.getvalue(), f"LAPKIN_{c_n}_{c_b}.xlsx", use_container_width=True)
+            else: st.warning("Data tidak ditemukan.")
+        except: st.error("Gagal menarik data.")
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
@@ -202,7 +194,7 @@ with mid:
     with col_c: 
         if st.button("📥 REKAP ABSENSI"): pop_rekap_advanced()
     with col_d: 
-        if st.button("🖨️ CETAK LAPKIN"): pop_cetak()
+        if st.button("🖨️ DOWNLOAD LAPKIN"): pop_cetak()
 
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
