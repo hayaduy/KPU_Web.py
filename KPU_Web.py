@@ -9,7 +9,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v54.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v55.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -30,7 +30,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION (URL PASSTI) ---
+# --- 2. CONFIGURATION ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -74,21 +74,18 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "PPPK"]
 }
 
-MASTER_PNS = list(DATABASE_INFO.keys())[:17]
-MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. HELPER FUNCTION (DATA RETRIEVAL) ---
-def fetch_csv(url):
+# --- 3. HELPER FUNCTION ---
+def get_clean_df(url):
     try:
-        # Tambahkan query random untuk menghindari Cache Google
-        clean_url = f"{url}&cache_bust={random.randint(1, 99999)}"
-        response = requests.get(clean_url, timeout=15)
-        if response.status_code == 200:
-            return pd.read_csv(StringIO(response.text))
-    except:
-        return None
-    return None
+        r = requests.get(f"{url}&cb={random.random()}", timeout=15)
+        df = pd.read_csv(StringIO(r.text))
+        df.columns = df.columns.str.strip()
+        # Buang baris kosong
+        df = df.dropna(how='all')
+        return df
+    except: return None
 
 # --- 4. DIALOGS ---
 
@@ -120,56 +117,50 @@ def pop_rekap_advanced():
     with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
     
     if st.button("📊 PROSES DATA REKAP", use_container_width=True):
-        df_pns = fetch_csv(URL_PNS)
-        df_pppk = fetch_csv(URL_PPPK)
-        
-        if df_pns is not None and df_pppk is not None:
-            df = pd.concat([df_pns, df_pppk], ignore_index=True)
-            df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
-            df = df[df.iloc[:, 0].dt.year == int(r_tahun)]
+        df1 = get_clean_df(URL_PNS)
+        df2 = get_clean_df(URL_PPPK)
+        if df1 is not None and df2 is not None:
+            df = pd.concat([df1, df2], ignore_index=True)
+            # CARA AMAN: Ubah ke string dulu baru filter teks (Anti Attribute Error)
+            df['ts_str'] = df.iloc[:, 0].astype(str)
+            # Filter Tahun
+            df = df[df['ts_str'].str.contains(str(r_tahun))]
+            # Filter Bulan (Jika bukan sepanjang tahun)
             if r_bulan != "SEPANJANG TAHUN":
-                df = df[df.iloc[:, 0].dt.month == LIST_BULAN.index(r_bulan)+1]
+                m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}" # Format "03" untuk Maret
+                # Cek format DD/MM/YYYY atau YYYY-MM-DD
+                df = df[df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-")]
             
             if not df.empty:
                 out = BytesIO()
-                with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                    df.to_excel(writer, index=False, sheet_name="Rekap")
+                with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False, sheet_name="Rekap")
                 st.download_button("📥 DOWNLOAD FILE REKAP", out.getvalue(), f"REKAP_{r_bulan}_{r_tahun}.xlsx", use_container_width=True)
-            else:
-                st.warning("Data kosong untuk filter ini.")
-        else:
-            st.error("Gagal menarik data dari Spreadsheet Google.")
+            else: st.warning("Data tidak ditemukan.")
+        else: st.error("Gagal menarik data.")
 
 @st.dialog("Download Lapkin Bulanan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
-    
     if st.button("📊 PROSES DOWNLOAD LAPKIN", use_container_width=True):
-        df = fetch_csv(URL_LAPKIN)
+        df = get_clean_df(URL_LAPKIN)
         if df is not None:
-            df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
-            df_f = df[(df.iloc[:, 1] == c_n) & (df.iloc[:, 0].dt.month == LIST_BULAN.index(c_b)+1)].copy()
-            df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
-            
+            df['ts_str'] = df.iloc[:, 0].astype(str)
+            m_idx = f"{LIST_BULAN.index(c_b)+1:02d}"
+            df_f = df[(df.iloc[:, 1] == c_n) & (df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-"))].copy()
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                    header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Bulan", c_b], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Hasil", "Ket"]]
-                    body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Melaksanakan tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
+                    header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Bulan", c_b], ["Nama", c_n], ["Jabatan", info[1]]]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
-                    pd.DataFrame(body).to_excel(writer, startrow=8, index=False, header=False, sheet_name="Lapkin")
-                st.download_button("📥 KLIK UNTUK DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", use_container_width=True)
-            else:
-                st.warning("Data sore tidak ditemukan.")
-        else:
-            st.error("Gagal menarik data Lapkin.")
+                    df_f.iloc[:, :6].to_excel(writer, startrow=7, index=False, sheet_name="Lapkin")
+                st.download_button("📥 KLIK DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", use_container_width=True)
+            else: st.warning("Data tidak ditemukan.")
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
-
 _, mid, _ = st.columns([0.1, 5, 0.1])
 with mid:
     col_a, col_b, col_c, col_d = st.columns(4)
@@ -187,16 +178,12 @@ tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PP
 def render_ui(urls, masters, tgl_target, tab_id):
     all_dfs = []
     for u in urls:
-        df_temp = fetch_csv(u)
-        if df_temp is not None:
-            all_dfs.append(df_temp)
-    
-    if not all_dfs:
-        st.warning("Menunggu data dari Spreadsheet...")
-        return
-        
+        df_t = get_clean_df(u)
+        if df_t is not None: all_dfs.append(df_t)
+    if not all_dfs: return
     df = pd.concat(all_dfs, ignore_index=True)
-    t_str, t_alt = tgl_target.strftime('%d/%m/%Y'), tgl_target.strftime('%Y-%m-%d')
+    t_str = tgl_target.strftime('%d/%m/%Y')
+    t_alt = tgl_target.strftime('%Y-%m-%d')
     log = {}
     for _, r in df.iterrows():
         ts = str(r.iloc[0])
@@ -208,7 +195,6 @@ def render_ui(urls, masters, tgl_target, tab_id):
                 if nama not in log: log[nama] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
                 if dt.hour >= 15: log[nama]["p"] = dt.strftime("%H:%M")
             except: continue
-
     for i, p in enumerate(masters, 1):
         d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
         st_cls = "status-hadir" if d['k'] == "HADIR" else "status-terlambat" if d['k'] == "TERLAMBAT" else "status-alpa"
