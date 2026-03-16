@@ -6,9 +6,10 @@ from datetime import datetime
 import pytz
 import random
 import time
+import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v50.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v51.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -34,12 +35,14 @@ URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
 
-# URL SCRIPT KHUSUS LAPKIN (Tetap ke Spreadsheet)
+# Link Script untuk Lapkin
 SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
 
-# URL GOOGLE FORM ABSENSI (Kirim ke formResponse)
-FORM_ABSEN_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdw_GzE_fS6_YourFormID/formResponse"
-ENTRY_ID_NAMA = "entry.123456789" # Ganti dengan ID Nama di Form
+# --- PASTIKAN ID INI BENAR ---
+# Contoh link: https://docs.google.com/forms/d/e/1FAIpQLSdw_.../viewform
+# Ganti 'viewform' jadi 'formResponse'
+FORM_ID = "1FAIpQLSdw_GzE_fS6_YourFormID" 
+ENTRY_ID = "123456789" # Angka saja dari entry.123456789
 
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. HSS"],
@@ -75,8 +78,6 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. HSS"]
 }
 
-LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-
 # --- 4. DIALOGS ---
 
 @st.dialog("Update Data Pegawai")
@@ -85,40 +86,35 @@ def pop_update(nama):
     tipe = st.radio("Pilih Update:", ["Absen", "Lapkin"])
     
     if tipe == "Absen":
-        if st.button("🚀 KIRIM ABSEN KE GOOGLE FORM"):
-            params = {ENTRY_ID_NAMA: nama}
-            try:
-                requests.get(FORM_ABSEN_URL, params=params)
-                st.success("Absen terkirim ke Google Form!")
-                time.sleep(1); st.rerun()
-            except: st.error("Gagal terhubung.")
+        st.info("Setelah klik tombol, Absen akan terkirim via Google Form.")
+        if st.button("🚀 KIRIM ABSEN SEKARANG"):
+            # Teknik Iframe Hidden untuk submit form tanpa berpindah halaman
+            encoded_nama = nama.replace(" ", "+")
+            form_url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse?entry.{ENTRY_ID}={encoded_nama}&submit=Submit"
+            
+            # Menampilkan komponen yang menjalankan submit otomatis
+            components.html(f"""
+                <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+                <form action="{form_url}" method="post" target="hidden_iframe" id="form_absen">
+                </form>
+                <script>
+                    document.getElementById('form_absen').submit();
+                    alert('Absen {nama} Berhasil Dikirim!');
+                </script>
+            """, height=0)
+            st.success("Perintah Absen Dikirim!")
+            time.sleep(2)
+            st.rerun()
 
     else: # Update Lapkin
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja/Output:")
-        if st.button("📝 KIRIM LAPKIN KE SPREADSHEET"):
+        if st.button("📝 SIMPAN LAPKIN"):
             info = DATABASE_INFO[nama]
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             res = requests.post(SCRIPT_LAPKIN, json=payload)
             if "Success" in res.text:
                 st.success("Laporan Kerja tersimpan!"); time.sleep(1); st.rerun()
-
-@st.dialog("Advanced Rekap", width="large")
-def pop_rekap_advanced():
-    # ... (Logika Rekap Sesuai v48.0) ...
-    st.write("### 📊 FILTER REKAP ABSENSI")
-    col_a, col_b = st.columns(2)
-    with col_a: r_bulan = st.selectbox("Pilih Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
-    with col_b: r_tahun = st.selectbox("Pilih Tahun:", ["2025", "2026", "2027"], index=1)
-    if st.button("📊 DOWNLOAD REKAP"):
-         st.info("Fitur Rekap diproses...")
-
-@st.dialog("Download Lapkin")
-def pop_cetak():
-    c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
-    c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
-    if st.button("📊 PROSES DOWNLOAD"):
-         st.info("File sedang disiapkan...")
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
@@ -132,9 +128,9 @@ with mid:
     with col_b: 
         pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
     with col_c: 
-        if st.button("📥 REKAP"): pop_rekap_advanced()
+        st.button("📥 REKAP")
     with col_d: 
-        if st.button("🖨️ DOWNLOAD"): pop_cetak()
+        st.button("🖨️ DOWNLOAD")
 
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
