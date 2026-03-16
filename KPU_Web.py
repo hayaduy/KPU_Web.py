@@ -174,7 +174,7 @@ with mid:
     with col_c: 
         if st.button("📥 REKAP"): pop_rekap_advanced()
     with col_d: 
-        if st.button("🖨️ DOWNLOAD"): pop_cetak()
+        if st.button("🖨️ LAPKIN"): pop_cetak()
 
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
