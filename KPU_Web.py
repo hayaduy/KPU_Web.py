@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import StringIO, BytesIO
-from datetime import datetime, date
+from datetime import datetime
 import calendar
 import pytz
 import random
@@ -10,7 +10,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v62.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v63.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -31,19 +31,17 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATABASE ---
+# --- 2. CONFIGURATION ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
-SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
+SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbz9ZZT3bgQkG52H--yFg-Er8l0OSXNqobbNmKTsx-DV4n2ki2t1uCUlHXSbFahNDOnw/exec"
 
 FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
 FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
-# Data Master dengan Mapping Atasan (Sekretaris & Kasubbag)
 DATABASE_INFO = {
-    # PNS
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
@@ -61,18 +59,17 @@ DATABASE_INFO = {
     "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
-    # PPPK
     "Sya'bani Rona Baika": ["199202072024212044", "Pranata Komputer Ahli Pertama", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
     "Apriadi Rakhman": ["198904222024211013", "Pranata Komputer Ahli Pertama", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "M Satria Maipadly": ["198905262024211016", "Penata Kelola Pemilu Ahli Pertama", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Basuki Rahmat": ["197705222024211007", "Penata Kelola Pemilu Ahli Pertama", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Sulaiman": ["198411222024211010", "Penata Kelola Pemilu Ahli Pertama", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
-    "Saldoz Yedi": ["198008112025211019", "Operator Layanan Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
-    "Mastoni Ridani": ["199106012025211018", "Operator Layanan Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
-    "Suriadi": ["199803022025211005", "Pengelola Umum Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
-    "Ami Aspihani": ["198204042025211031", "Operator Layanan Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
-    "Abdurrahman": ["198810122025211031", "Staf Subbag Sosdiklih, Parmas dan SDM", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
-    "Emaliani": ["198906222025212027", "Pengadministrasi Perkantoran", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
+    "Saldoz Yedi": ["198008112025211019", "Operator Layanan Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum and Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
+    "Mastoni Ridani": ["199106012025211018", "Operator Layanan Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum and Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
+    "Suriadi": ["199803022025211005", "Pengelola Umum Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum and Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
+    "Ami Aspihani": ["198204042025211031", "Operator Layanan Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum and Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
+    "Abdurrahman": ["198810122025211031", "Staf Subbag Sosdiklih, Parmas and SDM", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
+    "Emaliani": ["198906222025212027", "Pengadministrasi Perkantoran", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum and Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "Penata Kelola Pemilu Ahli Pertama", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Saiful Fahmi, S.Pd": ["199506172025211036", "Penata Kelola Pemilu Ahli Pertama", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Nadianti": ["199906062025212036", "Pengadministrasi Perkantoran", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"]
@@ -80,14 +77,12 @@ DATABASE_INFO = {
 
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. HELPERS ---
 def get_clean_df(url):
     try:
         r = requests.get(f"{url}&cb={random.random()}", timeout=15)
         return pd.read_csv(StringIO(r.text)).dropna(how='all')
     except: return None
 
-# --- 4. DIALOGS ---
 @st.dialog("Update Data Pegawai")
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
@@ -123,42 +118,16 @@ def pop_cetak():
                 thn_skrg = datetime.now(wita_tz).year
                 hr_terakhir = calendar.monthrange(thn_skrg, LIST_BULAN.index(c_b)+1)[1]
                 tgl_footer = f"{hr_terakhir} {c_b} {thn_skrg}"
-
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                    header = [
-                        ["LAPORAN BULANAN"],
-                        ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"],
-                        [],
-                        ["Bulan", f": {c_b}"],
-                        ["Nama", f": {c_n}"],
-                        ["Jabatan", f": {info[1]}"],
-                        ["Unit Kerja", f": {info[2]}"],
-                        ["Sub Bagian", f": {info[3]}"],
-                        [],
-                        ["Hasil Kinerja", ":"],
-                        ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]
-                    ]
+                    header = [["LAPORAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [], ["Bulan", f": {c_b}"], ["Nama", f": {c_n}"], ["Jabatan", f": {info[1]}"], ["Unit Kerja", f": {info[2]}"], ["Sub Bagian", f": {info[3]}"], [], ["Hasil Kinerja", ":"], ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]]
                     body = [[i+1, pd.to_datetime(r.iloc[0], dayfirst=True).strftime('%d %B %Y'), f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] for i, (_, r) in enumerate(df_f.iterrows())]
-                    
-                    # FOOTER DUA KOLOM SESUAI GAMBAR
-                    footer_name_left = "Suwanto, SH., MH."
-                    footer_nip_left = "19720521 200912 1 001"
-                    
-                    footer = [
-                        [],
-                        ["", "", "", f"Kandangan, {tgl_footer}"],
-                        ["Mengetahui,", "", "", "Atasan Langsung,"],
-                        [info[2] if "Sekretaris" in info[1] else "Sekretaris,", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"],
-                        [], [], [],
-                        [footer_name_left, "", "", info[5]],
-                        [f"NIP. {footer_nip_left}", "", "", f"NIP. {info[6]}"]
-                    ]
-
+                    # FOOTER SINGLE SIGNATURE (ATASAN LANGSUNG SAJA)
+                    footer = [[], ["", "", "", f"Kandangan, {tgl_footer}"], ["", "", "", "Atasan Langsung,"], ["", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"], [], [], [], ["", "", "", info[5]], ["", "", "", f"NIP. {info[6]}"]]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
-                st.download_button("📥 DOWNLOAD FORMAT RESMI", out.getvalue(), f"LAPORAN_{c_n}.xlsx", use_container_width=True)
+                st.download_button("📥 DOWNLOAD LAPORAN", out.getvalue(), f"LAPORAN_{c_n}.xlsx", use_container_width=True)
             else: st.warning("Data tidak ditemukan.")
 
 # --- 5. MAIN UI ---
