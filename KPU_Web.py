@@ -10,7 +10,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v64.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v65.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -78,12 +78,14 @@ DATABASE_INFO = {
 
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
+# --- 3. HELPERS ---
 def get_clean_df(url):
     try:
         r = requests.get(f"{url}&cb={random.random()}", timeout=15)
         return pd.read_csv(StringIO(r.text)).dropna(how='all')
     except: return None
 
+# --- 4. DIALOGS ---
 @st.dialog("Update Data Pegawai")
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
@@ -94,7 +96,7 @@ def pop_update(nama):
             f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
             u_nama, u_nip, u_jab = nama.replace(" ", "+"), info[0].replace(" ", "+"), info[1].replace(" ", "+")
             full_url = f"https://docs.google.com/forms/d/e/{f_id}/formResponse?{E_NAMA}={u_nama}&{E_NIP}={u_nip}&{E_JABATAN}={u_jab}&submit=Submit"
-            components.html(f"""<iframe name="h" style="display:none;"></iframe><form action="{full_url}" method="post" target="h" id="f"></form><script>document.getElementById('f').submit(); alert('Absen Berhasil!');</script>""", height=0)
+            components.html(f"""<iframe name="h" style="display:none;"></iframe><form action="{full_url}" method="post" target="h" id="f"></form><script>document.getElementById('f').submit(); alert('Absen {nama} Berhasil!');</script>""", height=0)
             st.success("Terkirim!"); time.sleep(1); st.rerun()
     else:
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
@@ -127,7 +129,6 @@ def pop_cetak():
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
-                # OPTIMASI HP: Menambahkan MIME Type Excel agar dikenali sistem mobile
                 st.download_button("📥 DOWNLOAD LAPORAN", out.getvalue(), f"LAPORAN_{c_n}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
             else: st.warning("Data tidak ditemukan.")
 
@@ -145,8 +146,7 @@ with mid:
              df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
              if df1 is not None:
                  out = BytesIO(); pd.concat([df1, df2]).to_excel(out, index=False)
-                 # OPTIMASI HP: Menambahkan MIME Type Excel
-                 st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), "REKAP_TOTAL.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                 st.download_button("📥 REKAP TOTAL", out.getvalue(), "REKAP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     with col_d: 
         if st.button("🖨️ DOWNLOAD"): pop_cetak()
 
