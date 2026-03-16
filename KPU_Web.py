@@ -9,7 +9,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v53.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v54.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -30,7 +30,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION ---
+# --- 2. CONFIGURATION (URL PASSTI) ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -78,6 +78,18 @@ MASTER_PNS = list(DATABASE_INFO.keys())[:17]
 MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
+# --- 3. HELPER FUNCTION (DATA RETRIEVAL) ---
+def fetch_csv(url):
+    try:
+        # Tambahkan query random untuk menghindari Cache Google
+        clean_url = f"{url}&cache_bust={random.randint(1, 99999)}"
+        response = requests.get(clean_url, timeout=15)
+        if response.status_code == 200:
+            return pd.read_csv(StringIO(response.text))
+    except:
+        return None
+    return None
+
 # --- 4. DIALOGS ---
 
 @st.dialog("Update Data Pegawai")
@@ -106,41 +118,40 @@ def pop_rekap_advanced():
     c1, c2 = st.columns(2)
     with c1: r_bulan = st.selectbox("Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
     with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
-    c3, c4 = st.columns(2)
-    with c3: r_kat = st.selectbox("Kategori:", ["SEMUA", "PNS", "PPPK"])
-    with c4: 
-        opts = ["-- Semua Nama --"]
-        if r_kat == "PNS": opts += MASTER_PNS
-        elif r_kat == "PPPK": opts += MASTER_PPPK
-        else: opts += list(DATABASE_INFO.keys())
-        r_nama = st.selectbox("Pilih Nama:", opts)
-
-    if st.button("📊 GENERATE REKAP EXCEL", use_container_width=True):
-        try:
-            r1, r2 = requests.get(f"{URL_PNS}&n={random.random()}").text, requests.get(f"{URL_PPPK}&n={random.random()}").text
-            df = pd.concat([pd.read_csv(StringIO(r1)), pd.read_csv(StringIO(r2))], ignore_index=True)
+    
+    if st.button("📊 PROSES DATA REKAP", use_container_width=True):
+        df_pns = fetch_csv(URL_PNS)
+        df_pppk = fetch_csv(URL_PPPK)
+        
+        if df_pns is not None and df_pppk is not None:
+            df = pd.concat([df_pns, df_pppk], ignore_index=True)
             df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
             df = df[df.iloc[:, 0].dt.year == int(r_tahun)]
-            if r_bulan != "SEPANJANG TAHUN": df = df[df.iloc[:, 0].dt.month == LIST_BULAN.index(r_bulan)+1]
-            if r_nama != "-- Semua Nama --": df = df[df.iloc[:, 1] == r_nama]
-            elif r_kat == "PNS": df = df[df.iloc[:, 1].isin(MASTER_PNS)]
-            elif r_kat == "PPPK": df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
-            out = BytesIO()
-            with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False, sheet_name="Rekap")
-            st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_kat}.xlsx", use_container_width=True)
-        except: st.error("Gagal menarik data.")
+            if r_bulan != "SEPANJANG TAHUN":
+                df = df[df.iloc[:, 0].dt.month == LIST_BULAN.index(r_bulan)+1]
+            
+            if not df.empty:
+                out = BytesIO()
+                with pd.ExcelWriter(out, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name="Rekap")
+                st.download_button("📥 DOWNLOAD FILE REKAP", out.getvalue(), f"REKAP_{r_bulan}_{r_tahun}.xlsx", use_container_width=True)
+            else:
+                st.warning("Data kosong untuk filter ini.")
+        else:
+            st.error("Gagal menarik data dari Spreadsheet Google.")
 
 @st.dialog("Download Lapkin Bulanan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
+    
     if st.button("📊 PROSES DOWNLOAD LAPKIN", use_container_width=True):
-        try:
-            raw = requests.get(f"{URL_LAPKIN}&n={random.random()}").text
-            df = pd.read_csv(StringIO(raw))
+        df = fetch_csv(URL_LAPKIN)
+        if df is not None:
             df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
             df_f = df[(df.iloc[:, 1] == c_n) & (df.iloc[:, 0].dt.month == LIST_BULAN.index(c_b)+1)].copy()
             df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
+            
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
                 out = BytesIO()
@@ -149,13 +160,16 @@ def pop_cetak():
                     body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Melaksanakan tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
                     pd.DataFrame(body).to_excel(writer, startrow=8, index=False, header=False, sheet_name="Lapkin")
-                st.download_button("📥 KLIK DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", use_container_width=True)
-            else: st.warning("Data tidak ditemukan.")
-        except: st.error("Gagal menarik data.")
+                st.download_button("📥 KLIK UNTUK DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", use_container_width=True)
+            else:
+                st.warning("Data sore tidak ditemukan.")
+        else:
+            st.error("Gagal menarik data Lapkin.")
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
+
 _, mid, _ = st.columns([0.1, 5, 0.1])
 with mid:
     col_a, col_b, col_c, col_d = st.columns(4)
@@ -173,11 +187,14 @@ tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PP
 def render_ui(urls, masters, tgl_target, tab_id):
     all_dfs = []
     for u in urls:
-        try:
-            r = requests.get(f"{u}&nc={random.random()}", timeout=15).text
-            all_dfs.append(pd.read_csv(StringIO(r)))
-        except: continue
-    if not all_dfs: return
+        df_temp = fetch_csv(u)
+        if df_temp is not None:
+            all_dfs.append(df_temp)
+    
+    if not all_dfs:
+        st.warning("Menunggu data dari Spreadsheet...")
+        return
+        
     df = pd.concat(all_dfs, ignore_index=True)
     t_str, t_alt = tgl_target.strftime('%d/%m/%Y'), tgl_target.strftime('%Y-%m-%d')
     log = {}
@@ -185,10 +202,12 @@ def render_ui(urls, masters, tgl_target, tab_id):
         ts = str(r.iloc[0])
         if t_str in ts or t_alt in ts:
             nama = str(r.iloc[1]).strip()
-            dt = pd.to_datetime(ts, dayfirst=True, errors='coerce')
-            if pd.isna(dt): continue
-            if nama not in log: log[nama] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
-            if dt.hour >= 15: log[nama]["p"] = dt.strftime("%H:%M")
+            try:
+                dt = pd.to_datetime(ts, dayfirst=True, errors='coerce')
+                if pd.isna(dt): continue
+                if nama not in log: log[nama] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
+                if dt.hour >= 15: log[nama]["p"] = dt.strftime("%H:%M")
+            except: continue
 
     for i, p in enumerate(masters, 1):
         d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
