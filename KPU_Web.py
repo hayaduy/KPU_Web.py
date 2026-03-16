@@ -9,7 +9,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v55.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v56.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -43,9 +43,9 @@ E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.15900964
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "PNS"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "PNS"],
-    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "PNS"],
-    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum dan SDM", "PNS"],
-    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data dan Informasi", "PNS"],
+    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum and Logistik", "PNS"],
+    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum and SDM", "PNS"],
+    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data and Informasi", "PNS"],
     "Helmalina": ["19680318 199003 2 003", "Penelaah Teknis Kebijakan", "PNS"],
     "Ahmad Erwan Rifani, S.HI": ["19830829 200811 1 001", "Penelaah Teknis Kebijakan", "PNS"],
     "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
@@ -74,6 +74,8 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "PPPK"]
 }
 
+MASTER_PNS = list(DATABASE_INFO.keys())[:17]
+MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 # --- 3. HELPER FUNCTION ---
@@ -81,8 +83,6 @@ def get_clean_df(url):
     try:
         r = requests.get(f"{url}&cb={random.random()}", timeout=15)
         df = pd.read_csv(StringIO(r.text))
-        df.columns = df.columns.str.strip()
-        # Buang baris kosong
         df = df.dropna(how='all')
         return df
     except: return None
@@ -116,25 +116,40 @@ def pop_rekap_advanced():
     with c1: r_bulan = st.selectbox("Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
     with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
     
+    # FILTER TAMBAHAN (KATEGORI & NAMA)
+    c3, c4 = st.columns(2)
+    with c3: r_kat = st.selectbox("Kategori Pegawai:", ["SEMUA", "PNS", "PPPK"])
+    with c4:
+        opts = ["-- Semua Nama --"]
+        if r_kat == "PNS": opts += MASTER_PNS
+        elif r_kat == "PPPK": opts += MASTER_PPPK
+        else: opts += list(DATABASE_INFO.keys())
+        r_nama = st.selectbox("Pilih Nama:", opts)
+        
     if st.button("📊 PROSES DATA REKAP", use_container_width=True):
         df1 = get_clean_df(URL_PNS)
         df2 = get_clean_df(URL_PPPK)
         if df1 is not None and df2 is not None:
             df = pd.concat([df1, df2], ignore_index=True)
-            # CARA AMAN: Ubah ke string dulu baru filter teks (Anti Attribute Error)
             df['ts_str'] = df.iloc[:, 0].astype(str)
-            # Filter Tahun
+            # Filter Tahun & Bulan
             df = df[df['ts_str'].str.contains(str(r_tahun))]
-            # Filter Bulan (Jika bukan sepanjang tahun)
             if r_bulan != "SEPANJANG TAHUN":
-                m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}" # Format "03" untuk Maret
-                # Cek format DD/MM/YYYY atau YYYY-MM-DD
+                m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}"
                 df = df[df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-")]
             
+            # Filter Kategori & Nama
+            if r_nama != "-- Semua Nama --":
+                df = df[df.iloc[:, 1] == r_nama]
+            elif r_kat == "PNS":
+                df = df[df.iloc[:, 1].isin(MASTER_PNS)]
+            elif r_kat == "PPPK":
+                df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
+                
             if not df.empty:
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False, sheet_name="Rekap")
-                st.download_button("📥 DOWNLOAD FILE REKAP", out.getvalue(), f"REKAP_{r_bulan}_{r_tahun}.xlsx", use_container_width=True)
+                st.download_button("📥 DOWNLOAD FILE REKAP", out.getvalue(), f"REKAP_{r_kat}.xlsx", use_container_width=True)
             else: st.warning("Data tidak ditemukan.")
         else: st.error("Gagal menarik data.")
 
@@ -182,8 +197,7 @@ def render_ui(urls, masters, tgl_target, tab_id):
         if df_t is not None: all_dfs.append(df_t)
     if not all_dfs: return
     df = pd.concat(all_dfs, ignore_index=True)
-    t_str = tgl_target.strftime('%d/%m/%Y')
-    t_alt = tgl_target.strftime('%Y-%m-%d')
+    t_str, t_alt = tgl_target.strftime('%d/%m/%Y'), tgl_target.strftime('%Y-%m-%d')
     log = {}
     for _, r in df.iterrows():
         ts = str(r.iloc[0])
