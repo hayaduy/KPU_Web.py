@@ -8,42 +8,63 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v42.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v43.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
-# --- CSS: BARIS RAPAT & SATU BARIS LURUS ---
+# --- 2. CSS CUSTOM: GRADIENT & GLASSMORPHISM ---
 st.markdown("""
     <style>
-    .stApp { background-color: #0F172A; }
+    /* Background Gradient Oranye, Hitam, Marun */
+    .stApp {
+        background: linear-gradient(135deg, #450a0a 0%, #000000 50%, #7c2d12 100%);
+        background-attachment: fixed;
+    }
+    
     .header-box { text-align: center; color: #F59E0B; font-size: 32px; font-weight: bold; margin-bottom: 0px; }
     .clock-box { text-align: center; color: white; font-size: 18px; margin-bottom: 15px; font-family: monospace; }
     
+    /* Efek Kaca untuk Baris Pegawai */
     .employee-card {
-        background-color: #1E293B;
-        padding: 8px 15px;
-        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding: 10px 20px;
+        border-radius: 12px;
         display: flex;
         align-items: center;
-        margin-bottom: 4px;
-        border: 1px solid #334155;
+        margin-bottom: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    .emp-name { flex: 3; color: white; font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .emp-time { flex: 1.2; color: #94A3B8; text-align: center; font-size: 13px; min-width: 80px; }
-    .emp-status { flex: 1; text-align: right; font-weight: bold; font-size: 13px; min-width: 90px; }
     
-    .status-hadir { color: #10B981; }
-    .status-alpa { color: #EF4444; }
-    .status-terlambat { color: #F59E0B; }
+    .emp-name { flex: 3; color: white; font-weight: bold; font-size: 14px; }
+    .emp-time { flex: 1.2; color: #cbd5e1; text-align: center; font-size: 13px; }
+    .emp-status { flex: 1; text-align: right; font-weight: bold; font-size: 13px; }
     
-    .block-container { max-width: 1000px; padding-top: 1rem; }
+    .status-hadir { color: #10B981; text-shadow: 0 0 10px rgba(16,185,129,0.5); }
+    .status-alpa { color: #EF4444; text-shadow: 0 0 10px rgba(239,68,68,0.5); }
+    .status-terlambat { color: #F59E0B; text-shadow: 0 0 10px rgba(245,158,11,0.5); }
+    
+    /* Efek Kaca untuk Tombol */
+    .stButton>button {
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+        border-radius: 8px;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        background: rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid #F59E0B !important;
+    }
+    
+    .block-container { max-width: 1050px; padding-top: 1.5rem; }
     [data-testid="stSidebar"] { display: none; }
-    
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { height: 40px; border-radius: 5px; padding: 0 20px; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION & DATABASE ---
+# --- 3. CONFIGURATION & DATABASE ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -83,12 +104,10 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. HSS"]
 }
 
-MASTER_PNS = list(DATABASE_INFO.keys())[:17]
-MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
-MASTER_SEMUA = list(DATABASE_INFO.keys())
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. DIALOGS ---
+# --- 4. DIALOGS (POP-UPS) ---
+
 @st.dialog("Update Data Pegawai")
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
@@ -106,10 +125,29 @@ def pop_update(nama):
             st.success("Berhasil!")
             time.sleep(1); st.rerun()
 
+@st.dialog("Rekap Absensi Bulanan")
+def pop_rekap():
+    st.write("### Download Rekap Seluruh Pegawai")
+    r_b = st.selectbox("Pilih Bulan Rekap:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
+    if st.button("📥 GENERATE REKAP EXCEL"):
+        try:
+            r1 = requests.get(f"{URL_PNS}&nc={random.random()}").text
+            r2 = requests.get(f"{URL_PPPK}&nc={random.random()}").text
+            df = pd.concat([pd.read_csv(StringIO(r1)), pd.read_csv(StringIO(r2))], ignore_index=True)
+            df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
+            bulan_idx = LIST_BULAN.index(r_b) + 1
+            df_f = df[df.iloc[:, 0].dt.month == bulan_idx].copy()
+            
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as writer:
+                df_f.to_excel(writer, index=False, sheet_name=f"Rekap_{r_b}")
+            st.download_button("📂 Download Rekap", out.getvalue(), f"REKAP_ABSENSI_{r_b}.xlsx")
+        except: st.error("Gagal menarik data absensi.")
+
 @st.dialog("Cetak Lapkin Bulanan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
-    c_n = st.selectbox("Pilih Pegawai:", MASTER_SEMUA)
+    c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
     if st.button("📊 GENERATE EXCEL"):
         raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
         df_l = pd.read_csv(StringIO(raw))
@@ -121,18 +159,18 @@ def pop_cetak():
             info = DATABASE_INFO[c_n]
             out = BytesIO()
             with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Bulan", c_b], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Hasil", "Ket"]]
+                header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Hasil", "Ket"]]
                 body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
                 pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
                 pd.DataFrame(body).to_excel(writer, startrow=8, index=False, header=False, sheet_name="Lapkin")
             st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx")
         else: st.warning("Data tidak ditemukan.")
 
-# --- 4. MAIN UI ---
+# --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
 
-# BARIS TOMBOL
+# BARIS TOMBOL UTAMA (CENTER)
 _, mid, _ = st.columns([0.1, 5, 0.1])
 with mid:
     col_a, col_b, col_c, col_d = st.columns(4)
@@ -141,14 +179,14 @@ with mid:
     with col_b: 
         pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
     with col_c: 
-        st.button("📥 REKAP")
+        if st.button("📥 REKAP"): pop_rekap()
     with col_d: 
         if st.button("🖨️ LAPKIN"): pop_cetak()
 
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
 
-def render_compact_ui(urls, masters, tgl_target, tab_name):
+def render_ui(urls, masters, tgl_target, tab_id):
     all_dfs = []
     for u in urls:
         try:
@@ -176,26 +214,19 @@ def render_compact_ui(urls, masters, tgl_target, tab_name):
         d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
         st_cls = "status-hadir" if d['k'] == "HADIR" else "status-terlambat" if d['k'] == "TERLAMBAT" else "status-alpa"
         
-        row_container = st.container()
-        with row_container:
-            c_data, c_btn = st.columns([8, 2])
-            with c_data:
-                st.markdown(f"""
-                    <div class="employee-card">
-                        <div class="emp-name">{i}. {p}</div>
-                        <div class="emp-time">M: {d['m']}</div>
-                        <div class="emp-time">P: {d['p']}</div>
-                        <div class="emp-status {st_cls}">{d['k']}</div>
-                    </div>
-                """, unsafe_allow_html=True)
-            with c_btn:
-                # PERBAIKAN: Menambahkan tag tab_name agar KEY tombol unik
-                if st.button(f"Update", key=f"btn_{p}_{i}_{tab_name}"): 
-                    pop_update(p)
+        c_main, c_side = st.columns([8.5, 1.5])
+        with c_main:
+            st.markdown(f"""
+                <div class="employee-card">
+                    <div class="emp-name">{i}. {p}</div>
+                    <div class="emp-time">M: <b>{d['m']}</b></div>
+                    <div class="emp-time">P: <b>{d['p']}</b></div>
+                    <div class="emp-status {st_cls}">{d['k']}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        with c_side:
+            if st.button("Update", key=f"btn_{p}_{tab_id}"): pop_update(p)
 
-with tab_all: 
-    render_compact_ui([URL_PNS, URL_PPPK], MASTER_SEMUA, pilih_tgl, "all")
-with tab_pns: 
-    render_compact_ui([URL_PNS], MASTER_PNS, pilih_tgl, "pns")
-with tab_pppk: 
-    render_compact_ui([URL_PPPK], MASTER_PPPK, pilih_tgl, "pppk")
+with tab_all: render_ui([URL_PNS, URL_PPPK], list(DATABASE_INFO.keys()), pilih_tgl, "all")
+with tab_pns: render_ui([URL_PNS], list(DATABASE_INFO.keys())[:17], pilih_tgl, "pns")
+with tab_pppk: render_ui([URL_PPPK], list(DATABASE_INFO.keys())[17:], pilih_tgl, "pppk")
