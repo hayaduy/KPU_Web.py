@@ -9,7 +9,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v51.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v52.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -34,48 +34,48 @@ st.markdown("""
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
-
-# Link Script untuk Lapkin
 SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
 
-# --- PASTIKAN ID INI BENAR ---
-# Contoh link: https://docs.google.com/forms/d/e/1FAIpQLSdw_.../viewform
-# Ganti 'viewform' jadi 'formResponse'
-FORM_ID = "1FAIpQLSdw_GzE_fS6_YourFormID" 
-ENTRY_ID = "123456789" # Angka saja dari entry.123456789
+# ID FORM & ENTRY (Berdasarkan Data Abang)
+FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
+FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
+
+E_NAMA = "entry.960346359"
+E_NIP = "entry.468881973"
+E_JABATAN = "entry.159009649"
 
 DATABASE_INFO = {
-    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. HSS"],
-    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. HSS"],
-    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. HSS"],
-    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum dan SDM", "Sekretariat KPU Kab. HSS"],
-    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data dan Informasi", "Sekretariat KPU Kab. HSS"],
-    "Helmalina": ["19680318 199003 2 003", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. HSS"],
-    "Ahmad Erwan Rifani, S.HI": ["19830829 200811 1 001", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. HSS"],
-    "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS"],
-    "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS"],
-    "Najmi Hidayati": ["19850608 200701 2 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS"],
-    "Jainal Abidin": ["19820712 200910 1 001", "Pengelola Layanan Operasional", "Sekretariat KPU Kab. HSS"],
-    "Suci Lestari, S.Ikom": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. HSS"],
-    "Athaya Insyira Khairani, S.H": ["20010712202506 2 017", "Penyusun Materi Hukum Dan Perundang- Undangan", "Sekretariat KPU Kab. HSS"],
-    "Muhammad Ibnu Fahmi, S.H.": ["20010608202506 1 007", "Penyusun Materi Hukum Dan Perundang- Undangan", "Sekretariat KPU Kab. HSS"],
-    "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS"],
-    "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS"],
-    "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS"],
-    "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. HSS"],
-    "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. HSS"],
-    "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS"],
-    "Basuki Rahmat": ["197705222024211007", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS"],
-    "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS"],
-    "Saldoz Yedi": ["198008112025211019", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. HSS"],
-    "Mastoni Ridani": ["199106012025211018", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. HSS"],
-    "Suriadi": ["199803022025211005", "PENGELOLA UMUM OPERASIONAL", "Sekretariat KPU Kab. HSS"],
-    "Ami Aspihani": ["198204042025211031", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. HSS"],
-    "Abdurrahman": ["198810122025211031", "Staf Subbag Sosdiklih, Parmas dan SDM", "Sekretariat KPU Kab. HSS"],
-    "Emaliani": ["198906222025212027", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. HSS"],
-    "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS"],
-    "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS"],
-    "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. HSS"]
+    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "PNS"],
+    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "PNS"],
+    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "PNS"],
+    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum dan SDM", "PNS"],
+    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data dan Informasi", "PNS"],
+    "Helmalina": ["19680318 199003 2 003", "Penelaah Teknis Kebijakan", "PNS"],
+    "Ahmad Erwan Rifani, S.HI": ["19830829 200811 1 001", "Penelaah Teknis Kebijakan", "PNS"],
+    "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
+    "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
+    "Najmi Hidayati": ["19850608 200701 2 003", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
+    "Jainal Abidin": ["19820712 200910 1 001", "Pengelola Layanan Operasional", "PNS"],
+    "Suci Lestari, S.Ikom": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan", "PNS"],
+    "Athaya Insyira Khairani, S.H": ["20010712202506 2 017", "Penyusun Materi Hukum Dan Perundang- Undangan", "PNS"],
+    "Muhammad Ibnu Fahmi, S.H.": ["20010608202506 1 007", "Penyusun Materi Hukum Dan Perundang- Undangan", "PNS"],
+    "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
+    "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
+    "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
+    "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "PPPK"],
+    "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "PPPK"],
+    "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
+    "Basuki Rahmat": ["197705222024211007", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
+    "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
+    "Saldoz Yedi": ["198008112025211019", "OPERATOR LAYANAN OPERASIONAL", "PPPK"],
+    "Mastoni Ridani": ["199106012025211018", "OPERATOR LAYANAN OPERASIONAL", "PPPK"],
+    "Suriadi": ["199803022025211005", "PENGELOLA UMUM OPERASIONAL", "PPPK"],
+    "Ami Aspihani": ["198204042025211031", "OPERATOR LAYANAN OPERASIONAL", "PPPK"],
+    "Abdurrahman": ["198810122025211031", "Staf Subbag Sosdiklih, Parmas dan SDM", "PPPK"],
+    "Emaliani": ["198906222025212027", "PENGADMINISTRASI PERKANTORAN", "PPPK"],
+    "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
+    "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
+    "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "PPPK"]
 }
 
 # --- 4. DIALOGS ---
@@ -84,37 +84,37 @@ DATABASE_INFO = {
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
     tipe = st.radio("Pilih Update:", ["Absen", "Lapkin"])
+    info = DATABASE_INFO[nama]
     
     if tipe == "Absen":
-        st.info("Setelah klik tombol, Absen akan terkirim via Google Form.")
+        st.info(f"Mengirim Absen ke Form {info[2]}...")
         if st.button("🚀 KIRIM ABSEN SEKARANG"):
-            # Teknik Iframe Hidden untuk submit form tanpa berpindah halaman
-            encoded_nama = nama.replace(" ", "+")
-            form_url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse?entry.{ENTRY_ID}={encoded_nama}&submit=Submit"
+            # Pilih Form Berdasarkan Kategori
+            f_id = FORM_ID_PNS if info[2] == "PNS" else FORM_ID_PPPK
             
-            # Menampilkan komponen yang menjalankan submit otomatis
+            # Buat URL pre-filled
+            u_nama = nama.replace(" ", "+")
+            u_nip = info[0].replace(" ", "+")
+            u_jab = info[1].replace(" ", "+")
+            
+            full_url = f"https://docs.google.com/forms/d/e/{f_id}/formResponse?{E_NAMA}={u_nama}&{E_NIP}={u_nip}&{E_JABATAN}={u_jab}&submit=Submit"
+            
             components.html(f"""
                 <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
-                <form action="{form_url}" method="post" target="hidden_iframe" id="form_absen">
-                </form>
-                <script>
-                    document.getElementById('form_absen').submit();
-                    alert('Absen {nama} Berhasil Dikirim!');
-                </script>
+                <form action="{full_url}" method="post" target="hidden_iframe" id="absen_form"></form>
+                <script>document.getElementById('absen_form').submit(); alert('Absen {nama} Berhasil!');</script>
             """, height=0)
-            st.success("Perintah Absen Dikirim!")
-            time.sleep(2)
-            st.rerun()
+            st.success("Berhasil dikirim!")
+            time.sleep(2); st.rerun()
 
-    else: # Update Lapkin
+    else: # Lapkin
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja/Output:")
         if st.button("📝 SIMPAN LAPKIN"):
-            info = DATABASE_INFO[nama]
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             res = requests.post(SCRIPT_LAPKIN, json=payload)
             if "Success" in res.text:
-                st.success("Laporan Kerja tersimpan!"); time.sleep(1); st.rerun()
+                st.success("Tersimpan!"); time.sleep(1); st.rerun()
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
@@ -127,10 +127,8 @@ with mid:
         if st.button("🔄 REFRESH"): st.rerun()
     with col_b: 
         pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
-    with col_c: 
-        st.button("📥 REKAP")
-    with col_d: 
-        st.button("🖨️ DOWNLOAD")
+    with col_c: st.button("📥 REKAP")
+    with col_d: st.button("🖨️ DOWNLOAD")
 
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
