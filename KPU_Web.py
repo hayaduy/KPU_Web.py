@@ -6,7 +6,7 @@ from datetime import datetime
 import random
 import time
 
-# --- 1. SETUP & CSS (MENIRU UI DESKTOP) ---
+# --- 1. SETUP PAGE ---
 st.set_page_config(page_title="KPU HSS Presence Hub Web", layout="wide", page_icon="🏛️")
 
 st.markdown("""
@@ -19,7 +19,7 @@ st.markdown("""
         border-radius: 12px;
         display: flex;
         align-items: center;
-        margin-bottom: 8px;
+        margin-bottom: 2px;
         border: 1px solid #334155;
     }
     .emp-name { flex: 3; color: white; font-weight: bold; font-size: 15px; }
@@ -28,12 +28,13 @@ st.markdown("""
     .status-hadir { color: #10B981; }
     .status-alpa { color: #EF4444; }
     .status-terlambat { color: #F59E0B; }
-    /* Menghilangkan padding berlebih streamlit */
-    .block-container { padding-top: 2rem; }
+    .stButton>button { border-radius: 8px; font-weight: bold; width: 100%; }
+    /* Menghilangkan padding sidebar agar bersih */
+    [data-testid="stSidebar"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION & DATABASE ---
+# --- 2. CONFIGURATION ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -73,60 +74,111 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. HSS"]
 }
 
-MASTER_PNS = list(DATABASE_INFO.keys())[:17]
-MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. HELPER FUNCTIONS ---
-def get_data(url):
-    try:
-        res = requests.get(f"{url}&nc={random.random()}", timeout=15)
-        return pd.read_csv(StringIO(res.text))
-    except: return None
+# --- 3. DIALOGS (POP-UPS) ---
 
-def format_tgl_indo(dt):
-    return f"{dt.day:02d} {LIST_BULAN[dt.month-1]} {dt.year}"
+@st.dialog("Update Data Pegawai")
+def pop_update(nama):
+    st.write(f"Pegawai: **{nama}**")
+    tipe = st.radio("Pilih Update:", ["Pagi (Absen Datang)", "Sore (Laporan Kerja)"])
+    st_fix = "Hadir"
+    h_kerja = "-"
+    if tipe == "Sore (Laporan Kerja)":
+        st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
+        h_kerja = st.text_area("Uraian Hasil Kerja/Output:")
+    
+    if st.button("🚀 KIRIM DATA"):
+        if tipe == "Sore (Laporan Kerja)" and not h_kerja.strip():
+            st.error("Uraian kerja wajib diisi!")
+        else:
+            info = DATABASE_INFO[nama]
+            payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
+            with st.spinner("Mengirim..."):
+                res = requests.post(SCRIPT_URL, json=payload)
+                if "Success" in res.text:
+                    st.success("Berhasil!")
+                    time.sleep(1)
+                    st.rerun()
 
-# --- 4. HEADER UI ---
+@st.dialog("Cetak Lapkin Bulanan")
+def pop_cetak():
+    st.write("Silakan pilih periode dan pegawai")
+    c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now().month-1)
+    c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
+    
+    if st.button("📊 GENERATE EXCEL"):
+        try:
+            raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
+            df_l = pd.read_csv(StringIO(raw))
+            df_l.iloc[:, 0] = pd.to_datetime(df_l.iloc[:, 0], dayfirst=True, errors='coerce')
+            bulan_idx = LIST_BULAN.index(c_b) + 1
+            df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == bulan_idx)].copy()
+            df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
+            
+            if df_f.empty:
+                st.warning("Data tidak ditemukan.")
+            else:
+                info = DATABASE_INFO[c_n]
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    header = [
+                        ["LAPORAN KERJA HARIAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [],
+                        ["", "Bulan", f": {c_b}"], ["", "Nama", f": {c_n.upper()}"],
+                        ["", "NIP", f": {info[0]}"], ["", "Jabatan", f": {info[1]}"], [],
+                        ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja", "Keterangan"]
+                    ]
+                    body = []
+                    for i, (_, row) in enumerate(df_f.iterrows(), 1):
+                        body.append([i, row.iloc[0].strftime('%d %B %Y'), f"Tugas {info[1]}", row.iloc[5], row.iloc[4]])
+                    pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
+                    pd.DataFrame(body).to_excel(writer, startrow=9, index=False, header=False, sheet_name="Lapkin")
+                
+                st.download_button(label="📥 DOWNLOAD SEKARANG", data=output.getvalue(), file_name=f"LAPKIN_{c_n}_{c_b}.xlsx")
+        except:
+            st.error("Gagal menarik data.")
+
+# --- 4. MAIN UI ---
 st.markdown(f'<div class="header-box">🏛️ MONITORING KPU HSS<br><span style="font-size:20px; color:white;">{datetime.now().strftime("%H:%M:%S WITA")}</span></div>', unsafe_allow_html=True)
 
-# Tombol Utama Berjejer
+# BARIS TOMBOL UTAMA
 c1, c2, c3, c4 = st.columns(4)
-with c1: 
+with c1:
     if st.button("🔄 REFRESH DATA"): st.rerun()
-with c2: 
+with c2:
     st.button("📅 " + datetime.now().strftime("%d %b %Y"))
 with c3:
-    if st.button("📥 REKAP ABSENSI"): st.info("Fitur Rekap Terintegrasi di Spreadsheet")
+    st.button("📥 REKAP ABSENSI")
+with c4:
+    # TOMBOL CETAK LAPKIN DI SINI
+    if st.button("🖨️ CETAK LAPKIN"):
+        pop_cetak()
 
-# --- 5. DASHBOARD MONITORING (TABEL CUSTOM) ---
+# --- 5. DASHBOARD PEGAWAI ---
 tab_pns, tab_pppk = st.tabs(["👥 PEGAWAI PNS", "👥 PEGAWAI PPPK"])
 
 def render_ui(url, master):
-    df = get_data(url)
+    res = requests.get(f"{url}&nc={random.random()}", timeout=15)
+    df = pd.read_csv(StringIO(res.text))
     today_str = datetime.now().strftime('%d/%m/%Y')
     today_alt = datetime.now().strftime('%Y-%m-%d')
     
     log = {}
-    if df is not None:
-        df.columns = df.columns.str.strip()
-        for _, r in df.iterrows():
-            ts = str(r.iloc[0])
-            if today_str in ts or today_alt in ts:
-                nama = str(r.iloc[1]).strip()
-                try:
-                    dt = pd.to_datetime(ts, dayfirst=True, errors='coerce')
-                    if pd.isna(dt): continue
-                    if nama not in log:
-                        log[nama] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
-                    if dt.hour >= 15: log[nama]["p"] = dt.strftime("%H:%M")
-                except: continue
+    df.columns = df.columns.str.strip()
+    for _, r in df.iterrows():
+        ts = str(r.iloc[0])
+        if today_str in ts or today_alt in ts:
+            nama = str(r.iloc[1]).strip()
+            dt = pd.to_datetime(ts, dayfirst=True, errors='coerce')
+            if pd.isna(dt): continue
+            if nama not in log:
+                log[nama] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
+            if dt.hour >= 15: log[nama]["p"] = dt.strftime("%H:%M")
 
     for i, p in enumerate(master, 1):
         d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
         st_cls = "status-hadir" if d['k'] == "HADIR" else "status-terlambat" if d['k'] == "TERLAMBAT" else "status-alpa"
         
-        # MENGGAMBAR BARIS PEGAWAI (IDENTIK DENGAN PC)
         st.markdown(f"""
             <div class="employee-card">
                 <div class="emp-name">{i}. {p}</div>
@@ -136,81 +188,10 @@ def render_ui(url, master):
             </div>
         """, unsafe_allow_html=True)
         
-        # TOMBOL UPDATE (DI BAWAH SETIAP BARIS)
-        if st.button(f"Update Data {p}", key=f"btn_{p}"):
-            st.session_state.target = p
-            st.session_state.show_form = True
+        if st.button(f"Update ✅", key=f"btn_{p}"):
+            pop_update(p)
 
-with tab_pns: render_ui(URL_PNS, MASTER_PNS)
-with tab_pppk: render_ui(URL_PPPK, MASTER_PPPK)
-
-# --- 6. SIDEBAR: POP-UP UPDATE (MENGGANTIKAN MODAL PC) ---
-if st.session_state.get('show_form'):
-    with st.sidebar:
-        st.markdown(f"### 📝 Update: {st.session_state.target}")
-        tipe = st.radio("Pilih Waktu Laporan:", ["Pagi (Absen Datang)", "Sore (Laporan Kerja)"])
-        
-        st_fix = "Hadir"
-        h_kerja = "-"
-        
-        if tipe == "Sore (Laporan Kerja)":
-            st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
-            h_kerja = st.text_area("Uraian Hasil Kerja/Output hari ini:")
-        
-        if st.button("✅ KIRIM KE GOOGLE SHEETS"):
-            if tipe == "Sore (Laporan Kerja)" and not h_kerja.strip():
-                st.error("Uraian kerja wajib diisi!")
-            else:
-                info = DATABASE_INFO[st.session_state.target]
-                payload = {"nama": st.session_state.target, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
-                with st.spinner("Mengirim data..."):
-                    res = requests.post(SCRIPT_URL, json=payload)
-                    if "Success" in res.text:
-                        st.success("Data Berhasil Diperbarui!")
-                        st.session_state.show_form = False
-                        time.sleep(1)
-                        st.rerun()
-        if st.button("❌ Batal"):
-            st.session_state.show_form = False
-            st.rerun()
-
-# --- 7. SIDEBAR: CETAK LAPKIN (LOGIKA FULL) ---
-st.sidebar.write("---")
-st.sidebar.subheader("🖨️ Cetak Lapkin Bulanan")
-c_b = st.sidebar.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now().month-1)
-c_n = st.sidebar.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
-
-if st.sidebar.button("📊 GENERATE EXCEL"):
-    try:
-        raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
-        df_l = pd.read_csv(StringIO(raw))
-        df_l.iloc[:, 0] = pd.to_datetime(df_l.iloc[:, 0], dayfirst=True, errors='coerce')
-        
-        bulan_idx = LIST_BULAN.index(c_b) + 1
-        df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == bulan_idx)].copy()
-        df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
-        
-        if df_f.empty:
-            st.sidebar.warning("Data sore tidak ditemukan untuk bulan ini.")
-        else:
-            info = DATABASE_INFO[c_n]
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                # Header Format KPU
-                header = [
-                    ["LAPORAN KERJA HARIAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [],
-                    ["", "Bulan", f": {c_b}"], ["", "Nama", f": {c_n.upper()}"],
-                    ["", "NIP", f": {info[0]}"], ["", "Jabatan", f": {info[1]}"],
-                    ["", "Unit Kerja", f": {info[2]}"], [],
-                    ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja / Output", "Keterangan"]
-                ]
-                body = []
-                for i, (_, row) in enumerate(df_f.iterrows(), 1):
-                    body.append([i, format_tgl_indo(row.iloc[0]), f"Melaksanakan tugas sebagai {info[1]}", row.iloc[5], row.iloc[4]])
-                
-                pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
-                pd.DataFrame(body).to_excel(writer, startrow=10, index=False, header=False, sheet_name="Lapkin")
-            
-            st.sidebar.download_button(label="📥 Download File", data=output.getvalue(), file_name=f"LAPKIN_{c_n}_{c_b}.xlsx")
-    except Exception as e:
-        st.sidebar.error(f"Gagal memproses data: {e}")
+with tab_pns:
+    render_ui(URL_PNS, list(DATABASE_INFO.keys())[:17])
+with tab_pppk:
+    render_ui(URL_PPPK, list(DATABASE_INFO.keys())[17:])
