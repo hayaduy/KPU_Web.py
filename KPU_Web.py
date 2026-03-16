@@ -2,14 +2,15 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import StringIO, BytesIO
-from datetime import datetime
+from datetime import datetime, date
+import calendar
 import pytz
 import random
 import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v57.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v58.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -34,58 +35,53 @@ st.markdown("""
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
-
-# GUNAKAN LINK SCRIPT TERBARU ABANG SETELAH REDEPLOY
-SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbyiSGdP-YSyq8wD_LR2CI8Jqu1qQN5PoH8FznvJ7n1gakFcgKsfoQS9a1dfFTucmhWr/exec"
+SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
 
 FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
 FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
 DATABASE_INFO = {
-    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "PNS"],
-    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "PNS"],
-    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum and Logistik", "PNS"],
-    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum and SDM", "PNS"],
-    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data and Informasi", "PNS"],
-    "Helmalina": ["19680318 199003 2 003", "Penelaah Teknis Kebijakan", "PNS"],
-    "Ahmad Erwan Rifani, S.HI": ["19830829 200811 1 001", "Penelaah Teknis Kebijakan", "PNS"],
-    "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
-    "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
-    "Najmi Hidayati": ["19850608 200701 2 003", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
-    "Jainal Abidin": ["19820712 200910 1 001", "Pengelola Layanan Operasional", "PNS"],
-    "Suci Lestari, S.Ikom": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan", "PNS"],
-    "Athaya Insyira Khairani, S.H": ["20010712202506 2 017", "Penyusun Materi Hukum Dan Perundang- Undangan", "PNS"],
-    "Muhammad Ibnu Fahmi, S.H.": ["20010608202506 1 007", "Penyusun Materi Hukum Dan Perundang- Undangan", "PNS"],
-    "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
-    "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
-    "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi", "PNS"],
-    "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "PPPK"],
-    "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "PPPK"],
-    "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
-    "Basuki Rahmat": ["197705222024211007", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
-    "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
-    "Saldoz Yedi": ["198008112025211019", "OPERATOR LAYANAN OPERASIONAL", "PPPK"],
-    "Mastoni Ridani": ["199106012025211018", "OPERATOR LAYANAN OPERASIONAL", "PPPK"],
-    "Suriadi": ["199803022025211005", "PENGELOLA UMUM OPERASIONAL", "PPPK"],
-    "Ami Aspihani": ["198204042025211031", "OPERATOR LAYANAN OPERASIONAL", "PPPK"],
-    "Abdurrahman": ["198810122025211031", "Staf Subbag Sosdiklih, Parmas dan SDM", "PPPK"],
-    "Emaliani": ["198906222025212027", "PENGADMINISTRASI PERKANTORAN", "PPPK"],
-    "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
-    "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "PPPK"],
-    "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "PPPK"]
+    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum and Logistik", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum and SDM", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data and Informasi", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Helmalina": ["19680318 199003 2 003", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Ahmad Erwan Rifani, S.HI": ["19830829 200811 1 001", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Najmi Hidayati": ["19850608 200701 2 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Jainal Abidin": ["19820712 200910 1 001", "Pengelola Layanan Operasional", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Suci Lestari, S.Ikom": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Athaya Insyira Khairani, S.H": ["20010712202506 2 017", "Penyusun Materi Hukum Dan Perundang- Undangan", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Muhammad Ibnu Fahmi, S.H.": ["20010608202506 1 007", "Penyusun Materi Hukum Dan Perundang- Undangan", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. HSS", "-", "PNS"],
+    "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Basuki Rahmat": ["197705222024211007", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Saldoz Yedi": ["198008112025211019", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Mastoni Ridani": ["199106012025211018", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Suriadi": ["199803022025211005", "PENGELOLA UMUM OPERASIONAL", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Ami Aspihani": ["198204042025211031", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Abdurrahman": ["198810122025211031", "Staf Subbag Sosdiklih, Parmas dan SDM", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Emaliani": ["198906222025212027", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. HSS", "-", "PPPK"],
+    "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. HSS", "-", "PPPK"]
 }
 
-MASTER_PNS = list(DATABASE_INFO.keys())[:17]
-MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 3. HELPER ---
+# --- 3. HELPERS ---
 def get_clean_df(url):
     try:
         r = requests.get(f"{url}&cb={random.random()}", timeout=15)
-        df = pd.read_csv(StringIO(r.text))
-        return df.dropna(how='all')
+        return pd.read_csv(StringIO(r.text)).dropna(how='all')
     except: return None
 
 # --- 4. DIALOGS ---
@@ -96,7 +92,7 @@ def pop_update(nama):
     info = DATABASE_INFO[nama]
     if tipe == "Absen":
         if st.button("🚀 KIRIM ABSEN SEKARANG"):
-            f_id = FORM_ID_PNS if info[2] == "PNS" else FORM_ID_PPPK
+            f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
             u_nama, u_nip, u_jab = nama.replace(" ", "+"), info[0].replace(" ", "+"), info[1].replace(" ", "+")
             full_url = f"https://docs.google.com/forms/d/e/{f_id}/formResponse?{E_NAMA}={u_nama}&{E_NIP}={u_nip}&{E_JABATAN}={u_jab}&submit=Submit"
             components.html(f"""<iframe name="h" style="display:none;"></iframe><form action="{full_url}" method="post" target="h" id="f"></form><script>document.getElementById('f').submit(); alert('Absen Berhasil!');</script>""", height=0)
@@ -107,24 +103,15 @@ def pop_update(nama):
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             requests.post(SCRIPT_LAPKIN, json=payload)
-            st.success("Tersimpan (Data Lama Hari Ini Diganti)!"); time.sleep(1); st.rerun()
+            st.success("Tersimpan (Replace Ok)!"); time.sleep(1); st.rerun()
 
-@st.dialog("Advanced Rekap Excel", width="large")
+@st.dialog("Advanced Rekap", width="large")
 def pop_rekap_advanced():
     st.markdown("### 📊 FILTER REKAP")
     c1, c2 = st.columns(2)
     with c1: r_bulan = st.selectbox("Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
     with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
-    c3, c4 = st.columns(2)
-    with c3: r_kat = st.selectbox("Kategori:", ["SEMUA", "PNS", "PPPK"])
-    with c4:
-        opts = ["-- Semua Nama --"]
-        if r_kat == "PNS": opts += MASTER_PNS
-        elif r_kat == "PPPK": opts += MASTER_PPPK
-        else: opts += list(DATABASE_INFO.keys())
-        r_nama = st.selectbox("Pilih Nama:", opts)
-        
-    if st.button("📊 PROSES DATA REKAP", use_container_width=True):
+    if st.button("📊 PROSES DATA", use_container_width=True):
         df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
         if df1 is not None and df2 is not None:
             df = pd.concat([df1, df2], ignore_index=True)
@@ -133,20 +120,16 @@ def pop_rekap_advanced():
             if r_bulan != "SEPANJANG TAHUN":
                 m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}"
                 df = df[df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-")]
-            if r_nama != "-- Semua Nama --": df = df[df.iloc[:, 1] == r_nama]
-            elif r_kat == "PNS": df = df[df.iloc[:, 1].isin(MASTER_PNS)]
-            elif r_kat == "PPPK": df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
             if not df.empty:
                 out = BytesIO()
-                with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False, sheet_name="Rekap")
-                st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_kat}.xlsx", use_container_width=True)
-            else: st.warning("Data tidak ditemukan.")
+                with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
+                st.download_button("📥 DOWNLOAD", out.getvalue(), f"REKAP_{r_bulan}.xlsx", use_container_width=True)
 
-@st.dialog("Download Lapkin Bulanan")
+@st.dialog("Download Laporan Bulanan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
-    if st.button("📊 PROSES DOWNLOAD LAPKIN", use_container_width=True):
+    if st.button("📊 GENERATE LAPORAN", use_container_width=True):
         df = get_clean_df(URL_LAPKIN)
         if df is not None:
             df['ts_str'] = df.iloc[:, 0].astype(str)
@@ -154,13 +137,49 @@ def pop_cetak():
             df_f = df[(df.iloc[:, 1] == c_n) & (df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-"))].copy()
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
+                # Hitung hari terakhir bulan tersebut untuk footer
+                thn_skrg = datetime.now(wita_tz).year
+                hr_terakhir = calendar.monthrange(thn_skrg, LIST_BULAN.index(c_b)+1)[1]
+                tgl_footer = f"{hr_terakhir} {c_b} {thn_skrg}"
+
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                    header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Bulan", c_b], ["Nama", c_n], ["Jabatan", info[1]]]
-                    pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
-                    df_f.iloc[:, :6].to_excel(writer, startrow=7, index=False, sheet_name="Lapkin")
-                st.download_button("📥 KLIK DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", use_container_width=True)
-            else: st.warning("Data tidak ditemukan.")
+                    # Layout Header sesuai Gambar
+                    header = [
+                        ["LAPORAN BULANAN"],
+                        ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"],
+                        [],
+                        ["Bulan", f": {c_b}"],
+                        ["Nama", f": {c_n}"],
+                        ["Jabatan", f": {info[1]}"],
+                        ["Unit Kerja", f": {info[2]}"],
+                        ["Sub Bagian", f": {info[3]}"],
+                        [],
+                        ["Hasil Kinerja", ":"],
+                        ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]
+                    ]
+                    # Isi Tabel
+                    body = []
+                    for i, (_, r) in enumerate(df_f.iterrows()):
+                        tgl_raw = pd.to_datetime(r.iloc[0], dayfirst=True)
+                        body.append([i+1, tgl_raw.strftime('%d %B %Y'), f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[1]} di {info[2]}", r.iloc[5], "-"] )
+                    
+                    # Footer
+                    footer = [
+                        [],
+                        ["", "", "", f"Kandangan, {tgl_footer}"],
+                        ["", "", "", "Menyetujui Atasan Langsung"],
+                        [], [], [],
+                        ["", "", "", "__________________________"],
+                        ["", "", "", f"NIP. {info[0]}"]
+                    ]
+
+                    pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
+                    pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
+                    pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
+                
+                st.download_button("📥 DOWNLOAD LAPKIN (FORMAT RESMI)", out.getvalue(), f"LAPORAN_{c_n}_{c_b}.xlsx", use_container_width=True)
+            else: st.warning("Data kinerja tidak ditemukan.")
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
@@ -174,7 +193,7 @@ with mid:
     with col_c: 
         if st.button("📥 REKAP"): pop_rekap_advanced()
     with col_d: 
-        if st.button("🖨️ LAPKIN"): pop_cetak()
+        if st.button("🖨️ DOWNLOAD"): pop_cetak()
 
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
