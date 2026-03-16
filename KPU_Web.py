@@ -2,49 +2,52 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import StringIO, BytesIO
-from datetime import datetime, timedelta
-import pytz # Library untuk zona waktu
+from datetime import datetime
+import pytz
 import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Hub v40.0", layout="wide", page_icon="🏛️")
-
-# Database Zona Waktu WITA
+st.set_page_config(page_title="KPU HSS Presence Hub v41.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
-# --- CSS: CENTER & RAPAT ---
+# --- CSS: BARIS RAPAT & SATU BARIS LURUS ---
 st.markdown("""
     <style>
     .stApp { background-color: #0F172A; }
-    .header-box { text-align: center; color: #F59E0B; font-size: 38px; font-weight: bold; margin-bottom: 5px; }
-    .clock-box { text-align: center; color: white; font-size: 20px; margin-bottom: 20px; font-family: monospace; }
+    .header-box { text-align: center; color: #F59E0B; font-size: 32px; font-weight: bold; margin-bottom: 0px; }
+    .clock-box { text-align: center; color: white; font-size: 18px; margin-bottom: 15px; font-family: monospace; }
+    
+    /* Desain Baris Sangat Rapat & Satu Baris Lurus */
     .employee-card {
         background-color: #1E293B;
-        padding: 12px 20px;
-        border-radius: 12px;
+        padding: 8px 15px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
-        margin-bottom: 2px;
+        justify-content: bace-between;
+        margin-bottom: 4px;
         border: 1px solid #334155;
     }
-    .emp-name { flex: 3; color: white; font-weight: bold; font-size: 15px; }
-    .emp-time { flex: 1.5; color: #94A3B8; text-align: center; font-size: 14px; }
-    .emp-status { flex: 1.5; text-align: right; font-weight: bold; font-size: 14px; }
+    .emp-name { flex: 3; color: white; font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .emp-time { flex: 1; color: #94A3B8; text-align: center; font-size: 13px; min-width: 80px; }
+    .emp-status { flex: 1; text-align: right; font-weight: bold; font-size: 13px; min-width: 90px; }
+    
     .status-hadir { color: #10B981; }
     .status-alpa { color: #EF4444; }
     .status-terlambat { color: #F59E0B; }
     
-    /* Menghilangkan padding sidebar & menyempitkan layout tengah */
+    /* Layout Tengah Rapat */
+    .block-container { max-width: 1000px; padding-top: 1rem; }
     [data-testid="stSidebar"] { display: none; }
-    .block-container { max-width: 900px; padding-top: 2rem; }
     
-    /* Style Tombol agar Rapat */
-    .stButton>button { border-radius: 8px; font-weight: bold; width: 100%; border: 1px solid #475569; background-color: #1e293b; color: white; }
+    /* Merampingkan Tab */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] { height: 40px; border-radius: 5px; padding: 0 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION ---
+# --- 2. CONFIGURATION & DATABASE ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -84,6 +87,9 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. HSS"]
 }
 
+MASTER_PNS = list(DATABASE_INFO.keys())[:17]
+MASTER_PPPK = list(DATABASE_INFO.keys())[17:]
+MASTER_SEMUA = list(DATABASE_INFO.keys())
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 # --- 3. DIALOGS ---
@@ -96,26 +102,24 @@ def pop_update(nama):
     if tipe == "Sore (Laporan Kerja)":
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja/Output:")
-    
     if st.button("🚀 KIRIM DATA"):
         info = DATABASE_INFO[nama]
         payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
         res = requests.post(SCRIPT_URL, json=payload)
         if "Success" in res.text:
             st.success("Berhasil!")
-            time.sleep(1)
-            st.rerun()
+            time.sleep(1); st.rerun()
 
 @st.dialog("Cetak Lapkin Bulanan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
-    c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
+    c_n = st.selectbox("Pilih Pegawai:", MASTER_SEMUA)
     if st.button("📊 GENERATE EXCEL"):
         raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
         df_l = pd.read_csv(StringIO(raw))
         df_l.iloc[:, 0] = pd.to_datetime(df_l.iloc[:, 0], dayfirst=True, errors='coerce')
-        bulan_idx = LIST_BULAN.index(c_b) + 1
-        df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == bulan_idx)].copy()
+        idx = LIST_BULAN.index(c_b) + 1
+        df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == idx)].copy()
         df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
         if not df_f.empty:
             info = DATABASE_INFO[c_n]
@@ -128,32 +132,39 @@ def pop_cetak():
             st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx")
         else: st.warning("Data tidak ditemukan.")
 
-# --- 4. MAIN UI (CENTERED) ---
+# --- 4. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
 
-# BARIS TOMBOL (Dibuat lebih rapat dengan kolom kosong di samping)
+# BARIS TOMBOL (RAPAT TENGAH)
 _, mid, _ = st.columns([0.1, 5, 0.1])
 with mid:
     col_a, col_b, col_c, col_d = st.columns(4)
-    with col_a:
+    with col_a: 
         if st.button("🔄 REFRESH"): st.rerun()
-    with col_b:
-        # TANGGAL SEKARANG BISA DIGANTI (Date Input)
-        pilih_tgl = st.date_input("Tanggal", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
-    with col_c:
+    with col_b: 
+        pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
+    with col_c: 
         st.button("📥 REKAP")
-    with col_d:
+    with col_d: 
         if st.button("🖨️ LAPKIN"): pop_cetak()
 
-# TABEL PNS / PPPK
-tab_pns, tab_pppk = st.tabs(["👥 PEGAWAI PNS", "👥 PEGAWAI PPPK"])
+# TABEL: SEMUA / PNS / PPPK
+st.write("---")
+tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
 
-def render_ui(url, master, tgl_target):
-    res = requests.get(f"{url}&nc={random.random()}", timeout=15)
-    df = pd.read_csv(StringIO(res.text))
-    t_str = tgl_target.strftime('%d/%m/%Y')
-    t_alt = tgl_target.strftime('%Y-%m-%d')
+def render_compact_ui(urls, masters, tgl_target):
+    # Mengambil data dari kedua link (PNS & PPPK) jika di Tab Semua
+    all_dfs = []
+    for u in urls:
+        try:
+            r = requests.get(f"{u}&nc={random.random()}", timeout=15)
+            all_dfs.append(pd.read_csv(StringIO(r.text)))
+        except: continue
+    
+    if not all_dfs: return
+    df = pd.concat(all_dfs, ignore_index=True)
+    t_str, t_alt = tgl_target.strftime('%d/%m/%Y'), tgl_target.strftime('%Y-%m-%d')
     
     log = {}
     df.columns = df.columns.str.strip()
@@ -167,21 +178,29 @@ def render_ui(url, master, tgl_target):
                 log[nama] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
             if dt.hour >= 15: log[nama]["p"] = dt.strftime("%H:%M")
 
-    for i, p in enumerate(master, 1):
+    for i, p in enumerate(masters, 1):
         d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
         st_cls = "status-hadir" if d['k'] == "HADIR" else "status-terlambat" if d['k'] == "TERLAMBAT" else "status-alpa"
         
-        st.markdown(f"""
-            <div class="employee-card">
-                <div class="emp-name">{i}. {p}</div>
-                <div class="emp-time">M: <b>{d['m']}</b></div>
-                <div class="emp-time">P: <b>{d['p']}</b></div>
-                <div class="emp-status {st_cls}">{d['k']}</div>
-            </div>
-        """, unsafe_allow_html=True)
-        if st.button(f"Update ✅", key=f"btn_{p}"): pop_update(p)
+        # UI BARIS (SEMUA DALAM 1 BARIS HORIZONTAL)
+        row_container = st.container()
+        with row_container:
+            c_data, c_btn = st.columns([8, 1.5]) # Kolom data lebar, kolom tombol kecil
+            with c_data:
+                st.markdown(f"""
+                    <div class="employee-card">
+                        <div class="emp-name">{i}. {p}</div>
+                        <div class="emp-time">M: {d['m']}</div>
+                        <div class="emp-time">P: {d['p']}</div>
+                        <div class="emp-status {st_cls}">{d['k']}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with c_btn:
+                if st.button(f"Update", key=f"btn_{p}_{i}"): pop_update(p)
 
-with tab_pns:
-    render_ui(URL_PNS, list(DATABASE_INFO.keys())[:17], pilih_tgl)
-with tab_pppk:
-    render_ui(URL_PPPK, list(DATABASE_INFO.keys())[17:], pilih_tgl)
+with tab_all: 
+    render_compact_ui([URL_PNS, URL_PPPK], MASTER_SEMUA, pilih_tgl)
+with tab_pns: 
+    render_compact_ui([URL_PNS], MASTER_PNS, pilih_tgl)
+with tab_pppk: 
+    render_compact_ui([URL_PPPK], MASTER_PPPK, pilih_tgl)
