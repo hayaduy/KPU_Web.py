@@ -8,25 +8,19 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v47.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v48.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
-# --- 2. CSS CUSTOM: FIX POSISI & UI MEWAH ---
+# --- 2. CSS CUSTOM: MEWAH & FIX POSISI ---
 st.markdown("""
     <style>
     .stApp {
         background: linear-gradient(135deg, #450a0a 0%, #000000 50%, #7c2d12 100%);
         background-attachment: fixed;
     }
-    /* Padding atas dipertebal agar judul tidak ketutupan */
-    .block-container { 
-        max-width: 1050px; 
-        padding-top: 5rem !important; 
-    }
-    
+    .block-container { max-width: 1050px; padding-top: 5rem !important; }
     .header-box { text-align: center; color: #F59E0B; font-size: 32px; font-weight: bold; margin-bottom: 5px; }
     .clock-box { text-align: center; color: white; font-size: 18px; margin-bottom: 25px; font-family: monospace; }
-    
     .employee-card {
         background: rgba(255, 255, 255, 0.05);
         backdrop-filter: blur(10px);
@@ -40,11 +34,9 @@ st.markdown("""
     .emp-name { flex: 3; color: white; font-weight: bold; font-size: 14px; }
     .emp-time { flex: 1.2; color: #cbd5e1; text-align: center; font-size: 13px; }
     .emp-status { flex: 1; text-align: right; font-weight: bold; font-size: 13px; }
-    
     .status-hadir { color: #10B981; }
     .status-alpa { color: #EF4444; }
     .status-terlambat { color: #F59E0B; }
-    
     .stButton>button {
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(5px);
@@ -58,12 +50,9 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 3. CONFIGURATION & DATABASE ---
-# URL Database Google Sheets (CSV)
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
-
-# LINK SCRIPT TERBARU ABANG
 SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
 
 DATABASE_INFO = {
@@ -115,26 +104,35 @@ def pop_update(nama):
     if tipe == "Sore (Laporan Kerja)":
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja/Output:")
-    
     if st.button("🚀 KIRIM DATA"):
         info = DATABASE_INFO[nama]
         payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
-        try:
-            res = requests.post(SCRIPT_URL, json=payload, timeout=15)
-            if "Success" in res.text:
-                st.success("Berhasil! Data Masuk ke Absensi & Lapkin.")
-                time.sleep(1)
-                st.rerun()
-        except:
-            st.error("Gagal terhubung ke Script. Cek Deployment Abang.")
+        res = requests.post(SCRIPT_URL, json=payload)
+        if "Success" in res.text:
+            st.success("Berhasil!"); time.sleep(1); st.rerun()
 
 @st.dialog("Advanced Rekap Excel", width="large")
 def pop_rekap_advanced():
     st.markdown("### 📊 FILTER REKAP ABSENSI")
-    col_a, col_b = st.columns(2)
-    with col_a: r_bulan = st.selectbox("Pilih Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
-    with col_b: r_tahun = st.selectbox("Pilih Tahun:", ["2025", "2026", "2027"], index=1)
     
+    # BARIS 1: BULAN DAN TAHUN
+    col_a, col_b = st.columns(2)
+    with col_a:
+        r_bulan = st.selectbox("Pilih Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
+    with col_b:
+        r_tahun = st.selectbox("Pilih Tahun:", ["2025", "2026", "2027"], index=1)
+    
+    # BARIS 2: KATEGORI DAN NAMA (FITUR YANG TADI DISANGKA HILANG)
+    col_c, col_d = st.columns(2)
+    with col_c:
+        r_kat = st.selectbox("Kategori Pegawai:", ["SEMUA", "PNS", "PPPK"])
+    with col_d:
+        options_nama = ["-- Semua Nama --"]
+        if r_kat == "PNS": options_nama += MASTER_PNS
+        elif r_kat == "PPPK": options_nama += MASTER_PPPK
+        else: options_nama += list(DATABASE_INFO.keys())
+        r_nama = st.selectbox("Pilih Nama (Opsional):", options_nama)
+
     if st.button("📊 PROSES DATA REKAP", use_container_width=True):
         try:
             r1 = requests.get(f"{URL_PNS}&nc={random.random()}").text
@@ -142,20 +140,33 @@ def pop_rekap_advanced():
             df = pd.concat([pd.read_csv(StringIO(r1)), pd.read_csv(StringIO(r2))], ignore_index=True)
             df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], dayfirst=True, errors='coerce')
             
+            # Filter Tahun & Bulan
+            df = df[df.iloc[:, 0].dt.year == int(r_tahun)]
             if r_bulan != "SEPANJANG TAHUN":
-                df = df[(df.iloc[:, 0].dt.month == LIST_BULAN.index(r_bulan)+1) & (df.iloc[:, 0].dt.year == int(r_tahun))]
+                df = df[df.iloc[:, 0].dt.month == LIST_BULAN.index(r_bulan)+1]
             
-            out = BytesIO()
-            with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name="Rekap")
-            st.download_button("📥 DOWNLOAD FILE EXCEL", out.getvalue(), f"REKAP_ABSENSI_{r_bulan}.xlsx", use_container_width=True)
+            # Filter Nama & Kategori
+            if r_nama != "-- Semua Nama --":
+                df = df[df.iloc[:, 1] == r_nama]
+            elif r_kat == "PNS":
+                df = df[df.iloc[:, 1].isin(MASTER_PNS)]
+            elif r_kat == "PPPK":
+                df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
+
+            if df.empty:
+                st.warning("Data tidak ditemukan.")
+            else:
+                out = BytesIO()
+                with pd.ExcelWriter(out, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name="Rekap")
+                st.download_button("📥 DOWNLOAD FILE REKAP", out.getvalue(), f"REKAP_{r_kat}.xlsx", use_container_width=True)
         except: st.error("Gagal menarik data.")
 
 @st.dialog("Download Lapkin Bulanan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
-    if st.button("📊 PROSES DATA LAPKIN", use_container_width=True):
+    if st.button("📊 PROSES DOWNLOAD EXCEL", use_container_width=True):
         try:
             raw = requests.get(f"{URL_LAPKIN}&nc={random.random()}").text
             df_l = pd.read_csv(StringIO(raw))
@@ -163,16 +174,15 @@ def pop_cetak():
             idx = LIST_BULAN.index(c_b) + 1
             df_f = df_l[(df_l.iloc[:, 1] == c_n) & (df_l.iloc[:, 0].dt.month == idx)].copy()
             df_f = df_f[df_f.iloc[:, 5].notna() & (df_f.iloc[:, 5] != "-")]
-            
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                    header = [["LAPORAN KERJA HARIAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [], ["Bulan", c_b], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja", "Keterangan"]]
+                    header = [["LAPORAN KERJA"], ["KPU HSS"], [], ["Nama", c_n], ["Jabatan", info[1]], [], ["No", "Tanggal", "Kegiatan", "Hasil", "Ket"]]
                     body = [[i+1, r.iloc[0].strftime('%d %B %Y'), f"Tugas {info[1]}", r.iloc[5], r.iloc[4]] for i, (_, r) in enumerate(df_f.iterrows())]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Lapkin")
-                    pd.DataFrame(body).to_excel(writer, startrow=9, index=False, header=False, sheet_name="Lapkin")
-                st.download_button("📥 DOWNLOAD LAPKIN EXCEL", out.getvalue(), f"LAPKIN_{c_n}_{c_b}.xlsx", use_container_width=True)
+                    pd.DataFrame(body).to_excel(writer, startrow=8, index=False, header=False, sheet_name="Lapkin")
+                st.download_button("📥 KLIK UNTUK DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", use_container_width=True)
             else: st.warning("Data tidak ditemukan.")
         except: st.error("Gagal menarik data.")
 
