@@ -10,7 +10,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v74.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v75.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -42,6 +42,7 @@ FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
 DATABASE_INFO = {
+    # PNS
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
@@ -63,7 +64,7 @@ DATABASE_INFO = {
     "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
     "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
-    "Basuki Rahmat": ["197705222024211007", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
+    "Basuki Rahmat": ["197705022024211007", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Saldoz Yedi": ["198008112025211019", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Mastoni Ridani": ["199106012025211018", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
@@ -77,7 +78,7 @@ DATABASE_INFO = {
 }
 
 # --- 3. HELPERS ---
-def clean_name(name):
+def clean_name_logic(name):
     return str(name).strip().lower().replace(",", "").replace(".", "").replace(" ", "")
 
 def get_clean_df(url):
@@ -96,20 +97,20 @@ def pop_update(nama):
         if st.button("🚀 KIRIM ABSEN SEKARANG"):
             f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
             form_url = f"https://docs.google.com/forms/d/e/{f_id}/formResponse"
-            # LOGIKA PENGIRIMAN DIRECT POST (ANT-ERROR)
             payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
             try:
+                # Direct requests.post as per the successful desktop code logic
                 requests.post(form_url, data=payload, timeout=10)
-                st.success(f"Absen {nama} Berhasil!")
-                time.sleep(1.5); st.rerun()
-            except: st.error("Gagal terhubung ke Google Form.")
+                st.success(f"Berhasil Mengirim Absen {nama}!")
+                time.sleep(2); st.rerun()
+            except: st.error("Koneksi Gagal. Coba lagi.")
     else:
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja:")
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             requests.post(SCRIPT_LAPKIN, json=payload)
-            st.success("Tersimpan!"); time.sleep(1); st.rerun()
+            st.success("Berhasil Update Lapkin!"); time.sleep(1); st.rerun()
 
 @st.dialog("Download Laporan")
 def pop_cetak():
@@ -129,8 +130,7 @@ def pop_cetak():
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
                     header = [["LAPORAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [], ["Bulan", f": {c_b}"], ["Nama", f": {c_n}"], ["Jabatan", f": {info[1]}"], ["Unit Kerja", f": {info[2]}"], ["Sub Bagian", f": {info[3]}"], [], ["Hasil Kinerja", ":"], ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]]
                     body = [[i+1, pd.to_datetime(r.iloc[0], dayfirst=True).strftime('%d %B %Y'), f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] for i, (_, r) in enumerate(df_f.iterrows())]
-                    # SINGLE SIGNATURE KANAN SAJA
-                    footer = [[], ["", "", "", f"Kandangan, {tgl_footer}"], ["", "", "", "Atasan Langsung,"], ["", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"], [], [], [], ["", "", "", info[5]], ["", "", "", info[6]]]
+                    footer = [[], ["", "", "", f"Kandangan, {tgl_footer}"], ["", "", "", "Atasan Langsung,"], ["", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"], [], [], [], ["", "", "", info[5]], ["", "", "", f"NIP. {info[6]}"]]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
@@ -164,15 +164,13 @@ def render_ui(urls, masters, tgl_target, tab_id):
     for _, r in df.iterrows():
         ts = str(r.iloc[0])
         if d_f1 in ts or d_f2 in ts:
-            nama_raw = clean_name(r.iloc[1])
+            name_on_sheet = clean_name_logic(r.iloc[1])
             dt = pd.to_datetime(ts, errors='coerce')
             if pd.isna(dt): continue
-            matched_master = next((m for m in masters if clean_name(m) == nama_raw), None)
+            matched_master = next((m for m in masters if clean_name_logic(m) == name_on_sheet), None)
             if matched_master:
-                if matched_master not in log:
-                    log[matched_master] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
+                if matched_master not in log: log[matched_master] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
                 if dt.hour >= 15: log[matched_master]["p"] = dt.strftime("%H:%M")
-
     for i, p in enumerate(masters, 1):
         d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
         st_cls = "status-hadir" if d['k'] == "HADIR" else "status-terlambat" if d['k'] == "TERLAMBAT" else "status-alpa"
