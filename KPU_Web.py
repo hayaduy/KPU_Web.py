@@ -9,7 +9,7 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v85.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v86.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 LIBUR_DAN_CUTI_2026 = {
@@ -20,6 +20,8 @@ LIBUR_DAN_CUTI_2026 = {
     "2026-05-01": "Hari Buruh", "2026-05-14": "Kenaikan Yesus", "2026-05-22": "Waisak",
     "2026-06-01": "Hari Lahir Pancasila", "2026-08-17": "HUT RI", "2026-12-25": "Natal"
 }
+
+LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 st.markdown("""
     <style>
@@ -85,7 +87,6 @@ DATABASE_INFO = {
 
 MASTER_PNS = [k for k, v in DATABASE_INFO.items() if v[4] == "PNS"]
 MASTER_PPPK = [k for k, v in DATABASE_INFO.items() if v[4] == "PPPK"]
-LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 # --- 3. HELPERS ---
 def get_clean_df(url):
@@ -103,7 +104,7 @@ def pop_update(nama):
     t_key = datetime.now(wita_tz).strftime("%Y-%m-%d")
     hldy = LIBUR_DAN_CUTI_2026.get(t_key)
     if hldy or datetime.now(wita_tz).weekday() >= 5:
-        st.error(f"Terkunci! Hari ini {hldy if hldy else 'Akhir Pekan'}. ☕")
+        st.error(f"Sistem Terkunci! Hari ini {hldy if hldy else 'Akhir Pekan'}. ☕")
         return
     st.write(f"Pegawai: **{nama}**")
     tipe = st.radio("Pilih Update:", ["Absen", "Lapkin"])
@@ -114,7 +115,7 @@ def pop_update(nama):
             payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
             try:
                 requests.post(f"https://docs.google.com/forms/d/e/{f_id}/formResponse", data=payload, timeout=5)
-                st.success("Sukses!"); time.sleep(1.5); st.rerun()
+                st.success("Sukses Terkirim!"); time.sleep(1.5); st.rerun()
             except: st.success("Selesai (Silent)!"); time.sleep(1.5); st.rerun()
     else:
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
@@ -123,67 +124,68 @@ def pop_update(nama):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             requests.post(SCRIPT_LAPKIN, json=payload); st.success("Tersimpan!"); time.sleep(1); st.rerun()
 
-# --- REKAP LENGKAP DENGAN FILTER NAMA DAN KATEGORI ---
 @st.dialog("Advanced Rekap Excel", width="large")
 def pop_rekap():
     st.markdown("### 📊 FILTER REKAP LENGKAP")
     c1, c2 = st.columns(2)
     with c1: r_bulan = st.selectbox("Pilih Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
     with c2: r_tahun = st.selectbox("Pilih Tahun:", ["2025", "2026", "2027"], index=1)
-    
     c3, c4 = st.columns(2)
     with c3: r_kat = st.selectbox("Jenis Pegawai:", ["SEMUA PEGAWAI", "PNS", "PPPK"])
     with c4:
-        # Nama otomatis menyesuaikan kategori yang dipilih
         if r_kat == "PNS": opts = ["-- Semua PNS --"] + MASTER_PNS
         elif r_kat == "PPPK": opts = ["-- Semua PPPK --"] + MASTER_PPPK
         else: opts = ["-- Semua Pegawai --"] + list(DATABASE_INFO.keys())
         r_nama = st.selectbox("Pilih Nama Spesifik:", opts)
 
     if st.button("📊 PROSES & DOWNLOAD EXCEL", use_container_width=True):
-        with st.spinner("Mengunduh data..."):
-            df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
-            if df1 is not None and df2 is not None:
-                df = pd.concat([df1, df2], ignore_index=True)
-                df['ts_str'] = df.iloc[:, 0].astype(str)
-                # Filter Tahun
-                df = df[df['ts_str'].str.contains(str(r_tahun))]
-                # Filter Bulan
-                if r_bulan != "SEPANJANG TAHUN":
-                    m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}"
-                    df = df[df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-")]
-                # Filter Kategori & Nama
-                if "Semua" not in r_nama: df = df[df.iloc[:, 1] == r_nama]
-                elif r_kat == "PNS": df = df[df.iloc[:, 1].isin(MASTER_PNS)]
-                elif r_kat == "PPPK": df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
+        df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
+        if df1 is not None and df2 is not None:
+            df = pd.concat([df1, df2], ignore_index=True)
+            df['ts_str'] = df.iloc[:, 0].astype(str)
+            df = df[df['ts_str'].str.contains(str(r_tahun))]
+            if r_bulan != "SEPANJANG TAHUN":
+                m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}"
+                df = df[df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-")]
+            if "Semua" not in r_nama: df = df[df.iloc[:, 1] == r_nama]
+            elif r_kat == "PNS": df = df[df.iloc[:, 1].isin(MASTER_PNS)]
+            elif r_kat == "PPPK": df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
 
-                if not df.empty:
-                    out = BytesIO()
-                    with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
-                    st.download_button("📥 DOWNLOAD FILE EXCEL", out.getvalue(), f"REKAP_{r_kat}_{r_bulan}.xlsx", use_container_width=True)
-                else: st.warning("Data tidak ditemukan pada filter ini.")
+            if not df.empty:
+                out = BytesIO()
+                with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
+                st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_kat}_{r_bulan}.xlsx", use_container_width=True)
+            else: st.warning("Data tidak ditemukan.")
 
 @st.dialog("Download Laporan Bulanan")
 def pop_cetak():
-    c_b = st.selectbox("Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
-    c_n = st.selectbox("Pegawai:", list(DATABASE_INFO.keys()))
-    if st.button("📊 GENERATE", use_container_width=True):
+    c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
+    c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
+    if st.button("📊 GENERATE LAPORAN", use_container_width=True):
         df = get_clean_df(URL_LAPKIN)
         if df is not None:
             df_f = df[(df.iloc[:, 1] == c_n)].copy()
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
-                hr_t = calendar.monthrange(datetime.now(wita_tz).year, datetime.now(wita_tz).month)[1]
-                tgl_f = f"{hr_t} {c_b} {datetime.now(wita_tz).year}"
+                hr_t = calendar.monthrange(datetime.now(wita_tz).year, LIST_BULAN.index(c_b)+1)[1]
+                tgl_f = f"{hr_t} {c_b} {datetime.now(wita_tz).year}" # Nama Bulan Indonesia
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
                     header = [["LAPORAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [], ["Bulan", f": {c_b}"], ["Nama", f": {c_n}"], ["Jabatan", f": {info[1]}"], ["Unit Kerja", f": {info[2]}"], ["Sub Bagian", f": {info[3]}"], [], ["Hasil Kinerja", ":"], ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]]
-                    body = [[i+1, pd.to_datetime(r.iloc[0], dayfirst=True).strftime('%d %B %Y'), f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] for i, (_, r) in enumerate(df_f.iterrows())]
+                    
+                    body = []
+                    for i, (_, r) in enumerate(df_f.iterrows()):
+                        raw_date = pd.to_datetime(r.iloc[0], dayfirst=True)
+                        # Format Tanggal Indonesia Manual (17 Maret 2026)
+                        tgl_indo = f"{raw_date.day} {LIST_BULAN[raw_date.month-1]} {raw_date.year}"
+                        body.append([i+1, tgl_indo, f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] )
+                    
                     footer = [[], ["", "", "", f"Kandangan, {tgl_f}"], ["", "", "", "Atasan Langsung,"], ["", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"], [], [], [], ["", "", "", info[5]], ["", "", "", f"NIP. {info[6]}"]]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
-                st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button("📥 DOWNLOAD LAPKIN", out.getvalue(), f"LAPKIN_{c_n}_{c_b}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            else: st.warning("Data tidak ditemukan.")
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
@@ -217,7 +219,7 @@ def render_ui(urls, masters, tgl_target, tab_id):
             n_raw = clean_logic(r.iloc[1])
             dt = pd.to_datetime(ts, errors='coerce')
             if pd.isna(dt): continue
-            matched = next((m for m in masters if str(m).strip().lower().replace(",", "").replace(".", "").replace(" ", "") == n_raw), None)
+            matched = next((m for m in masters if clean_logic(m) == n_raw), None)
             if matched:
                 if matched not in log: log[matched] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
                 if dt.hour >= 15: log[matched]["p"] = dt.strftime("%H:%M")
