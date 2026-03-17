@@ -9,37 +9,17 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v80.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v82.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
-# DATABASE LIBUR & CUTI BERSAMA 2026 (FIXED BERDASARKAN FOTO KALENDER)
+# DATABASE LIBUR & CUTI BERSAMA 2026 (FIXED)
 LIBUR_DAN_CUTI_2026 = {
-    "2026-01-01": "Tahun Baru 2026",
-    "2026-01-19": "Isra Mi'raj Nabi Muhammad SAW",
-    "2026-02-17": "Tahun Baru Imlek 2577 Kongzili",
-    "2026-03-18": "Cuti Bersama Hari Suci Nyepi",  # DISESUAIKAN DENGAN FOTO
-    "2026-03-19": "Cuti Bersama Hari Suci Nyepi",
-    "2026-03-20": "Hari Suci Nyepi (Tahun Baru Saka 1948)",
-    "2026-03-21": "Hari Raya Idul Fitri 1447 H",
-    "2026-03-22": "Hari Raya Idul Fitri 1447 H",
-    "2026-03-23": "Cuti Bersama Idul Fitri",
-    "2026-03-24": "Cuti Bersama Idul Fitri",
-    "2026-03-25": "Cuti Bersama Idul Fitri",
-    "2026-04-03": "Wafat Yesus Kristus",
-    "2026-04-05": "Hari Paskah",
-    "2026-05-01": "Hari Buruh Internasional",
-    "2026-05-14": "Kenaikan Yesus Kristus",
-    "2026-05-15": "Cuti Bersama Kenaikan Yesus Kristus",
-    "2026-05-22": "Hari Raya Waisak 2570 BE",
-    "2026-05-23": "Cuti Bersama Hari Raya Waisak",
-    "2026-05-27": "Hari Raya Idul Adha 1447 H",
-    "2026-05-28": "Cuti Bersama Idul Adha",
-    "2026-06-01": "Hari Lahir Pancasila",
-    "2026-06-16": "Tahun Baru Islam 1448 H",
-    "2026-08-17": "Hari Kemerdekaan Republik Indonesia",
-    "2026-08-25": "Maulid Nabi Muhammad SAW",
-    "2026-12-25": "Hari Raya Natal",
-    "2026-12-26": "Cuti Bersama Hari Raya Natal"
+    "2026-01-01": "Tahun Baru 2026", "2026-01-19": "Isra Mi'raj", "2026-02-17": "Imlek",
+    "2026-03-18": "Cuti Nyepi", "2026-03-19": "Cuti Nyepi", "2026-03-20": "Hari Nyepi",
+    "2026-03-21": "Idul Fitri", "2026-03-22": "Idul Fitri", "2026-03-23": "Cuti Idul Fitri",
+    "2026-03-24": "Cuti Idul Fitri", "2026-03-25": "Cuti Idul Fitri", "2026-04-03": "Wafat Yesus",
+    "2026-05-01": "Hari Buruh", "2026-05-14": "Kenaikan Yesus", "2026-05-22": "Waisak",
+    "2026-06-01": "Hari Lahir Pancasila", "2026-08-17": "HUT RI", "2026-12-25": "Natal"
 }
 
 st.markdown("""
@@ -60,7 +40,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION & DATABASE (DATA KUNCI SESUAI STRUKTUR) ---
+# --- 2. CONFIGURATION ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -71,6 +51,7 @@ FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
 DATABASE_INFO = {
+    # PNS & KASUBBAG
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
@@ -79,13 +60,19 @@ DATABASE_INFO = {
     "Suci Lestari, S.Ikom": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Athaya Insyira Khairani, S.H": ["20010712202506 2 017", "Penyusun Materi Hukum Dan Perundang- Undangan", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Muhammad Ibnu Fahmi, S.H.": ["20010608202506 1 007", "Penyusun Materi Hukum Dan Perundang- Undangan", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004"],
-    "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
-    "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Helmalina": ["19680318 199003 2 003", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Ahmad Erwan Rifani, S.HI": ["19830829 200811 1 001", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Najmi Hidayati": ["19850608 200701 2 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
+    "Jainal Abidin": ["19820712 200910 1 001", "Pengelola Layanan Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
+    "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
+    "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
+    "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
+
+    # PPPK
+    "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
+    "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Basuki Rahmat": ["197705022024211007", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Saldoz Yedi": ["198008112025211019", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
@@ -94,14 +81,14 @@ DATABASE_INFO = {
     "Ami Aspihani": ["198204042025211031", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Emaliani": ["198906222025212027", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
-    "Jainal Abidin": ["19820712 200910 1 001", "Pengelola Layanan Operasional", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
-    "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
     "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
     "Abdurrahman": ["198810122025211031", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
-    "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
-    "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"]
 }
+
+MASTER_PNS = [k for k, v in DATABASE_INFO.items() if v[4] == "PNS"]
+MASTER_PPPK = [k for k, v in DATABASE_INFO.items() if v[4] == "PPPK"]
+LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 # --- 3. HELPERS ---
 def get_clean_df(url):
@@ -113,12 +100,10 @@ def get_clean_df(url):
 # --- 4. DIALOGS ---
 @st.dialog("Update Data")
 def pop_update(nama):
-    # Cek Kalender Libur/Cuti
     today_key = datetime.now(wita_tz).strftime("%Y-%m-%d")
-    holiday_reason = LIBUR_DAN_CUTI_2026.get(today_key)
-    if holiday_reason or datetime.now(wita_tz).weekday() >= 5:
-        reason = holiday_reason if holiday_reason else "Akhir Pekan"
-        st.error(f"Sistem Terkunci! Hari ini {reason}. Selamat beristirahat! ☕")
+    holiday = LIBUR_DAN_CUTI_2026.get(today_key)
+    if holiday or datetime.now(wita_tz).weekday() >= 5:
+        st.error(f"Sistem Terkunci! Hari ini {holiday if holiday else 'Akhir Pekan'}. ☕")
         return
 
     st.write(f"Pegawai: **{nama}**")
@@ -129,7 +114,7 @@ def pop_update(nama):
             f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
             payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
             try:
-                requests.post(f"https://docs.google.com/forms/d/e/{f_id}/formResponse", data=payload, timeout=10)
+                requests.post(f"https://docs.google.com/forms/d/e/{f_id}/formResponse", data=payload, timeout=5)
                 st.success("Terkirim!"); time.sleep(1.5); st.rerun()
             except: st.success("Selesai!"); time.sleep(1.5); st.rerun()
     else:
@@ -140,14 +125,38 @@ def pop_update(nama):
             requests.post(SCRIPT_LAPKIN, json=payload)
             st.success("Tersimpan!"); time.sleep(1); st.rerun()
 
-@st.dialog("Advanced Rekap")
-def pop_rekap():
-    # Filter tetap lengkap
-    st.info("Fitur Rekap Siap")
+@st.dialog("Advanced Rekap", width="large")
+def pop_rekap_advanced():
+    st.markdown("### 📊 FILTER REKAP")
+    c1, c2 = st.columns(2)
+    with c1: r_bulan = st.selectbox("Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
+    with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
+    c3, c4 = st.columns(2)
+    with c3: r_kat = st.selectbox("Kategori:", ["SEMUA", "PNS", "PPPK"])
+    with c4:
+        opts = ["-- Semua Nama --"] + list(DATABASE_INFO.keys())
+        r_nama = st.selectbox("Pilih Nama:", opts)
+        
+    if st.button("📊 PROSES DATA", use_container_width=True):
+        df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
+        if df1 is not None and df2 is not None:
+            df = pd.concat([df1, df2], ignore_index=True)
+            df['ts_str'] = df.iloc[:, 0].astype(str)
+            df = df[df['ts_str'].str.contains(str(r_tahun))]
+            if r_bulan != "SEPANJANG TAHUN":
+                m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}"
+                df = df[df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-")]
+            if r_nama != "-- Semua Nama --": df = df[df.iloc[:, 1] == r_nama]
+            
+            if not df.empty:
+                out = BytesIO()
+                with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
+                st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_bulan}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            else: st.warning("Data tidak ditemukan.")
 
 @st.dialog("Download Laporan")
 def pop_cetak():
-    c_b = st.selectbox("Pilih Bulan:", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"], index=datetime.now(wita_tz).month-1)
+    c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
     if st.button("📊 GENERATE LAPORAN", use_container_width=True):
         df = get_clean_df(URL_LAPKIN)
@@ -156,13 +165,13 @@ def pop_cetak():
             df_f = df[(df.iloc[:, 1] == c_n)].copy()
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
-                hr_terakhir = calendar.monthrange(datetime.now(wita_tz).year, datetime.now(wita_tz).month)[1]
-                tgl_footer = f"{hr_terakhir} {c_b} {datetime.now(wita_tz).year}"
+                hr_t = calendar.monthrange(datetime.now(wita_tz).year, datetime.now(wita_tz).month)[1]
+                tgl_f = f"{hr_t} {c_b} {datetime.now(wita_tz).year}"
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
                     header = [["LAPORAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [], ["Bulan", f": {c_b}"], ["Nama", f": {c_n}"], ["Jabatan", f": {info[1]}"], ["Unit Kerja", f": {info[2]}"], ["Sub Bagian", f": {info[3]}"], [], ["Hasil Kinerja", ":"], ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]]
                     body = [[i+1, pd.to_datetime(r.iloc[0], dayfirst=True).strftime('%d %B %Y'), f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] for i, (_, r) in enumerate(df_f.iterrows())]
-                    footer = [[], ["", "", "", f"Kandangan, {tgl_footer}"], ["", "", "", "Atasan Langsung,"], ["", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"], [], [], [], ["", "", "", info[5]], ["", "", "", info[6]]]
+                    footer = [[], ["", "", "", f"Kandangan, {tgl_f}"], ["", "", "", "Atasan Langsung,"], ["", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"], [], [], [], ["", "", "", info[5]], ["", "", "", f"NIP. {info[6]}"]]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
@@ -178,7 +187,7 @@ with mid:
         if st.button("🔄 REFRESH"): st.rerun()
     with col_b: pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
     with col_c: 
-        if st.button("📥 REKAP"): pop_rekap()
+        if st.button("📥 REKAP"): pop_rekap_advanced()
     with col_d: 
         if st.button("🖨️ DOWNLOAD"): pop_cetak()
 
@@ -213,5 +222,5 @@ def render_ui(urls, masters, tgl_target, tab_id):
             if st.button("Update", key=f"btn_{p}_{tab_id}"): pop_update(p)
 
 with tab_all: render_ui([URL_PNS, URL_PPPK], list(DATABASE_INFO.keys()), pilih_tgl, "all")
-with tab_pns: render_ui([URL_PNS], list(DATABASE_INFO.keys())[:17], pilih_tgl, "pns")
-with tab_pppk: render_ui([URL_PPPK], list(DATABASE_INFO.keys())[17:], pilih_tgl, "pppk")
+with tab_pns: render_ui([URL_PNS], MASTER_PNS, pilih_tgl, "pns")
+with tab_pppk: render_ui([URL_PPPK], MASTER_PPPK, pilih_tgl, "pppk")
