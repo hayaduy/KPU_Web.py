@@ -10,7 +10,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v70.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v71.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -41,9 +41,8 @@ FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
 FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
-# DATABASE_INFO (DATA FIX 100% SESUAI INSTRUKSI)
 DATABASE_INFO = {
-    # PNS
+    # FORMAT: [NIP, JABATAN, UNIT KERJA, SUB BAGIAN, KATEGORI, NAMA ATASAN, NIP ATASAN]
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
@@ -61,7 +60,6 @@ DATABASE_INFO = {
     "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
-    # PPPK
     "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
     "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
@@ -78,7 +76,7 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"]
 }
 
-# --- 3. HELPERS & RENDER UI (LOGIKA SAMA) ---
+# --- 3. HELPERS ---
 def get_clean_df(url):
     try:
         r = requests.get(f"{url}&cb={random.random()}", timeout=15)
@@ -86,6 +84,7 @@ def get_clean_df(url):
         return df.dropna(how='all')
     except: return None
 
+# --- 4. DIALOGS ---
 @st.dialog("Update Data")
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
@@ -94,19 +93,23 @@ def pop_update(nama):
     if tipe == "Absen":
         if st.button("🚀 KIRIM ABSEN SEKARANG"):
             f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
-            u_nama, u_nip, u_jab = nama.replace(" ", "+"), info[0].replace(" ", "+"), info[1].replace(" ", "+")
-            full_url = f"https://docs.google.com/forms/d/e/{f_id}/formResponse?{E_NAMA}={u_nama}&{E_NIP}={u_nip}&{E_JABATAN}={u_jab}&submit=Submit"
-            components.html(f"""<iframe name="h" style="display:none;"></iframe><form action="{full_url}" method="post" target="h" id="f"></form><script>document.getElementById('f').submit(); alert('Absen Berhasil!');</script>""", height=0)
-            st.success("Terkirim!"); time.sleep(1); st.rerun()
+            form_url = f"https://docs.google.com/forms/d/e/{f_id}/formResponse"
+            # LOGIKA PENGIRIMAN SEPERTI KODE DESKTOP
+            payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
+            try:
+                res = requests.post(form_url, data=payload, timeout=10)
+                st.success(f"Absen {nama} Berhasil!")
+                time.sleep(1); st.rerun()
+            except: st.error("Gagal terhubung ke Form.")
     else:
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja:")
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             requests.post(SCRIPT_LAPKIN, json=payload)
-            st.success("Tersimpan!"); time.sleep(1); st.rerun()
+            st.success("Tersimpan (Replace OK)!"); time.sleep(1); st.rerun()
 
-@st.dialog("Download Laporan")
+@st.dialog("Laporan Bulanan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"], index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
@@ -129,7 +132,7 @@ def pop_cetak():
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
-                st.download_button("📥 DOWNLOAD LAPORAN", out.getvalue(), f"LAPORAN_{c_n}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
@@ -140,7 +143,12 @@ with mid:
     with col_a: 
         if st.button("🔄 REFRESH"): st.rerun()
     with col_b: pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
-    with col_c: st.button("📥 REKAP")
+    with col_c: 
+        if st.button("📥 REKAP"): 
+             df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
+             if df1 is not None:
+                 out = BytesIO(); pd.concat([df1, df2]).to_excel(out, index=False)
+                 st.download_button("📥 REKAP TOTAL", out.getvalue(), "REKAP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     with col_d: 
         if st.button("🖨️ DOWNLOAD"): pop_cetak()
 
@@ -155,12 +163,11 @@ def render_ui(urls, masters, tgl_target, tab_id):
     if not all_dfs: return
     df = pd.concat(all_dfs, ignore_index=True)
     d_f1 = tgl_target.strftime('%d/%m/%Y')
-    d_f2 = tgl_target.strftime('%-d/%-m/%Y')
-    d_f3 = tgl_target.strftime('%Y-%m-%d')
+    d_f2 = tgl_target.strftime('%Y-%m-%d')
     log = {}
     for _, r in df.iterrows():
         ts = str(r.iloc[0])
-        if any(dtf in ts for dtf in [d_f1, d_f2, d_f3]):
+        if d_f1 in ts or d_f2 in ts:
             nama_raw = str(r.iloc[1]).strip().lower().replace(",", "")
             dt = pd.to_datetime(ts, errors='coerce')
             if pd.isna(dt): continue
