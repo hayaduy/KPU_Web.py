@@ -9,7 +9,7 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v83.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v84.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 # DATABASE LIBUR & CUTI BERSAMA 2026 (FIXED 18 MARET)
@@ -50,7 +50,7 @@ FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
 FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
-# DATABASE_INFO (FIX 31 PEGAWAI: 17 PNS & 14 PPPK)
+# DATABASE 31 PEGAWAI (17 PNS, 14 PPPK)
 DATABASE_INFO = {
     # PNS & KASUBBAG
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
@@ -99,15 +99,17 @@ def get_clean_df(url):
         return pd.read_csv(StringIO(r.text)).dropna(how='all')
     except: return None
 
+def clean_logic(name):
+    return str(name).strip().lower().replace(",", "").replace(".", "").replace(" ", "")
+
 # --- 4. DIALOGS ---
 @st.dialog("Update Data")
 def pop_update(nama):
-    today_key = datetime.now(wita_tz).strftime("%Y-%m-%d")
-    holiday = LIBUR_DAN_CUTI_2026.get(today_key)
-    if holiday or datetime.now(wita_tz).weekday() >= 5:
-        st.error(f"Sistem Terkunci! Hari ini {holiday if holiday else 'Akhir Pekan'}. ☕")
+    t_key = datetime.now(wita_tz).strftime("%Y-%m-%d")
+    hldy = LIBUR_DAN_CUTI_2026.get(t_key)
+    if hldy or datetime.now(wita_tz).weekday() >= 5:
+        st.error(f"Sistem Terkunci! Hari ini {hldy if hldy else 'Akhir Pekan'}. ☕")
         return
-
     st.write(f"Pegawai: **{nama}**")
     tipe = st.radio("Pilih Update:", ["Absen", "Lapkin"])
     info = DATABASE_INFO[nama]
@@ -117,15 +119,14 @@ def pop_update(nama):
             payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
             try:
                 requests.post(f"https://docs.google.com/forms/d/e/{f_id}/formResponse", data=payload, timeout=5)
-                st.success("Terkirim!"); time.sleep(1.5); st.rerun()
+                st.success("Sukses Terkirim!"); time.sleep(1.5); st.rerun()
             except: st.success("Selesai!"); time.sleep(1.5); st.rerun()
     else:
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja:")
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
-            requests.post(SCRIPT_LAPKIN, json=payload)
-            st.success("Tersimpan!"); time.sleep(1); st.rerun()
+            requests.post(SCRIPT_LAPKIN, json=payload); st.success("Tersimpan!"); time.sleep(1); st.rerun()
 
 @st.dialog("Advanced Rekap", width="large")
 def pop_rekap():
@@ -133,14 +134,13 @@ def pop_rekap():
     c1, c2 = st.columns(2)
     with c1: r_bulan = st.selectbox("Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
     with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
-    
     if st.button("📊 PROSES & DOWNLOAD", use_container_width=True):
         df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
         if df1 is not None and df2 is not None:
             df = pd.concat([df1, df2], ignore_index=True)
             out = BytesIO()
             with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
-            st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_bulan}_{r_tahun}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_bulan}.xlsx", use_container_width=True)
 
 @st.dialog("Download Laporan Bulanan")
 def pop_cetak():
@@ -194,10 +194,10 @@ def render_ui(urls, masters, tgl_target, tab_id):
     for _, r in df.iterrows():
         ts = str(r.iloc[0])
         if d_f1 in ts or d_f2 in ts:
-            n_raw = str(r.iloc[1]).strip().lower().replace(",", "").replace(".", "").replace(" ", "")
+            n_raw = clean_logic(r.iloc[1])
             dt = pd.to_datetime(ts, errors='coerce')
             if pd.isna(dt): continue
-            matched = next((m for m in masters if str(m).strip().lower().replace(",", "").replace(".", "").replace(" ", "") == n_raw), None)
+            matched = next((m for m in masters if clean_logic(m) == n_raw), None)
             if matched:
                 if matched not in log: log[matched] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
                 if dt.hour >= 15: log[matched]["p"] = dt.strftime("%H:%M")
