@@ -9,7 +9,7 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v86.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v87.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 LIBUR_DAN_CUTI_2026 = {
@@ -69,6 +69,7 @@ DATABASE_INFO = {
     "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
     "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
+
     "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
@@ -115,8 +116,8 @@ def pop_update(nama):
             payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
             try:
                 requests.post(f"https://docs.google.com/forms/d/e/{f_id}/formResponse", data=payload, timeout=5)
-                st.success("Sukses Terkirim!"); time.sleep(1.5); st.rerun()
-            except: st.success("Selesai (Silent)!"); time.sleep(1.5); st.rerun()
+                st.success("Sukses!"); time.sleep(1.5); st.rerun()
+            except: st.success("Selesai!"); time.sleep(1.5); st.rerun()
     else:
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja:")
@@ -150,12 +151,9 @@ def pop_rekap():
             if "Semua" not in r_nama: df = df[df.iloc[:, 1] == r_nama]
             elif r_kat == "PNS": df = df[df.iloc[:, 1].isin(MASTER_PNS)]
             elif r_kat == "PPPK": df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
-
-            if not df.empty:
-                out = BytesIO()
-                with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
-                st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_kat}_{r_bulan}.xlsx", use_container_width=True)
-            else: st.warning("Data tidak ditemukan.")
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
+            st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_kat}_{r_bulan}.xlsx", use_container_width=True)
 
 @st.dialog("Download Laporan Bulanan")
 def pop_cetak():
@@ -167,25 +165,32 @@ def pop_cetak():
             df_f = df[(df.iloc[:, 1] == c_n)].copy()
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
+                # AMBIL NAMA & JABATAN ATASAN
+                atasan_nama = info[5]
+                # LOGIKA JABATAN ATASAN LENGKAP
+                if "Sekretaris" in info[1]: j_atasan = "Ketua KPU Kab. Hulu Sungai Selatan"
+                else:
+                    # Ambil jabatan lengkap atasan dari database info atasan
+                    j_atasan = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])[1]
+                    if "Kasubbag" in j_atasan:
+                        # Translate Kasubbag ke format lengkap penandatangan
+                        if "TP-Hupmas" in j_atasan: j_atasan = "Kepala Sub Bagian Teknis Penyelenggaraan Pemilu,\nPartisipasi dan Hubungan Masyarakat"
+                        elif "Keuangan" in j_atasan: j_atasan = "Kepala Sub Bagian Keuangan,\nUmum dan Logistik"
+                        elif "Hukum" in j_atasan: j_atasan = "Kepala Sub Bagian Hukum dan\nSumber Daya Manusia"
+                        elif "Perencanaan" in j_atasan: j_atasan = "Kepala Sub Bagian Perencanaan,\nData dan Informasi"
+
                 hr_t = calendar.monthrange(datetime.now(wita_tz).year, LIST_BULAN.index(c_b)+1)[1]
-                tgl_f = f"{hr_t} {c_b} {datetime.now(wita_tz).year}" # Nama Bulan Indonesia
+                tgl_f = f"{hr_t} {c_b} {datetime.now(wita_tz).year}"
                 out = BytesIO()
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
                     header = [["LAPORAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [], ["Bulan", f": {c_b}"], ["Nama", f": {c_n}"], ["Jabatan", f": {info[1]}"], ["Unit Kerja", f": {info[2]}"], ["Sub Bagian", f": {info[3]}"], [], ["Hasil Kinerja", ":"], ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]]
-                    
-                    body = []
-                    for i, (_, r) in enumerate(df_f.iterrows()):
-                        raw_date = pd.to_datetime(r.iloc[0], dayfirst=True)
-                        # Format Tanggal Indonesia Manual (17 Maret 2026)
-                        tgl_indo = f"{raw_date.day} {LIST_BULAN[raw_date.month-1]} {raw_date.year}"
-                        body.append([i+1, tgl_indo, f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] )
-                    
-                    footer = [[], ["", "", "", f"Kandangan, {tgl_f}"], ["", "", "", "Atasan Langsung,"], ["", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"], [], [], [], ["", "", "", info[5]], ["", "", "", f"NIP. {info[6]}"]]
+                    body = [[i+1, f"{pd.to_datetime(r.iloc[0], dayfirst=True).day} {LIST_BULAN[pd.to_datetime(r.iloc[0], dayfirst=True).month-1]} {pd.to_datetime(r.iloc[0], dayfirst=True).year}", f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] for i, (_, r) in enumerate(df_f.iterrows())]
+                    # FOOTER DENGAN JABATAN LENGKAP
+                    footer = [[], ["", "", "", f"Kandangan, {tgl_f}"], ["", "", "", "Atasan Langsung,"], ["", "", "", j_atasan], [], [], [], ["", "", "", atasan_nama], ["", "", "", f"NIP. {info[6]}"]]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
-                st.download_button("📥 DOWNLOAD LAPKIN", out.getvalue(), f"LAPKIN_{c_n}_{c_b}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-            else: st.warning("Data tidak ditemukan.")
+                st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", use_container_width=True)
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
