@@ -9,10 +9,10 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v82.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v83.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
-# DATABASE LIBUR & CUTI BERSAMA 2026 (FIXED)
+# DATABASE LIBUR & CUTI BERSAMA 2026 (FIXED 18 MARET)
 LIBUR_DAN_CUTI_2026 = {
     "2026-01-01": "Tahun Baru 2026", "2026-01-19": "Isra Mi'raj", "2026-02-17": "Imlek",
     "2026-03-18": "Cuti Nyepi", "2026-03-19": "Cuti Nyepi", "2026-03-20": "Hari Nyepi",
@@ -50,6 +50,7 @@ FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
 FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
+# DATABASE_INFO (FIX 31 PEGAWAI: 17 PNS & 14 PPPK)
 DATABASE_INFO = {
     # PNS & KASUBBAG
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
@@ -70,7 +71,7 @@ DATABASE_INFO = {
     "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
 
-    # PPPK
+    # PPPK (14 PEGAWAI)
     "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
@@ -83,7 +84,8 @@ DATABASE_INFO = {
     "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
     "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
     "Abdurrahman": ["198810122025211031", "OPERATOR LAYANAN OPERASIONAL", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
-    "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"]
+    "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
+    "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"]
 }
 
 MASTER_PNS = [k for k, v in DATABASE_INFO.items() if v[4] == "PNS"]
@@ -126,35 +128,21 @@ def pop_update(nama):
             st.success("Tersimpan!"); time.sleep(1); st.rerun()
 
 @st.dialog("Advanced Rekap", width="large")
-def pop_rekap_advanced():
-    st.markdown("### 📊 FILTER REKAP")
+def pop_rekap():
+    st.markdown("### 📊 FILTER REKAP EXCEL")
     c1, c2 = st.columns(2)
     with c1: r_bulan = st.selectbox("Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
     with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
-    c3, c4 = st.columns(2)
-    with c3: r_kat = st.selectbox("Kategori:", ["SEMUA", "PNS", "PPPK"])
-    with c4:
-        opts = ["-- Semua Nama --"] + list(DATABASE_INFO.keys())
-        r_nama = st.selectbox("Pilih Nama:", opts)
-        
-    if st.button("📊 PROSES DATA", use_container_width=True):
+    
+    if st.button("📊 PROSES & DOWNLOAD", use_container_width=True):
         df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
         if df1 is not None and df2 is not None:
             df = pd.concat([df1, df2], ignore_index=True)
-            df['ts_str'] = df.iloc[:, 0].astype(str)
-            df = df[df['ts_str'].str.contains(str(r_tahun))]
-            if r_bulan != "SEPANJANG TAHUN":
-                m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}"
-                df = df[df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-")]
-            if r_nama != "-- Semua Nama --": df = df[df.iloc[:, 1] == r_nama]
-            
-            if not df.empty:
-                out = BytesIO()
-                with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
-                st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_bulan}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-            else: st.warning("Data tidak ditemukan.")
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
+            st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_bulan}_{r_tahun}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
-@st.dialog("Download Laporan")
+@st.dialog("Download Laporan Bulanan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
@@ -175,7 +163,7 @@ def pop_cetak():
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
-                st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPORAN_{c_n}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
@@ -187,7 +175,7 @@ with mid:
         if st.button("🔄 REFRESH"): st.rerun()
     with col_b: pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
     with col_c: 
-        if st.button("📥 REKAP"): pop_rekap_advanced()
+        if st.button("📥 REKAP"): pop_rekap()
     with col_d: 
         if st.button("🖨️ DOWNLOAD"): pop_cetak()
 
@@ -209,7 +197,7 @@ def render_ui(urls, masters, tgl_target, tab_id):
             n_raw = str(r.iloc[1]).strip().lower().replace(",", "").replace(".", "").replace(" ", "")
             dt = pd.to_datetime(ts, errors='coerce')
             if pd.isna(dt): continue
-            matched = next((m for m in masters if m.lower().strip().replace(",", "").replace(".", "").replace(" ", "") == n_raw), None)
+            matched = next((m for m in masters if str(m).strip().lower().replace(",", "").replace(".", "").replace(" ", "") == n_raw), None)
             if matched:
                 if matched not in log: log[matched] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
                 if dt.hour >= 15: log[matched]["p"] = dt.strftime("%H:%M")
