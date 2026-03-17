@@ -10,7 +10,7 @@ import time
 import streamlit.components.v1 as components
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v71.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v73.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
@@ -60,6 +60,7 @@ DATABASE_INFO = {
     "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
+    # PPPK
     "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
     "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013"],
@@ -77,11 +78,14 @@ DATABASE_INFO = {
 }
 
 # --- 3. HELPERS ---
+def clean_name(name):
+    """Menghapus spasi dan tanda baca agar pencocokan 100% akurat"""
+    return str(name).strip().lower().replace(",", "").replace(".", "").replace(" ", "")
+
 def get_clean_df(url):
     try:
         r = requests.get(f"{url}&cb={random.random()}", timeout=15)
-        df = pd.read_csv(StringIO(r.text))
-        return df.dropna(how='all')
+        return pd.read_csv(StringIO(r.text)).dropna(how='all')
     except: return None
 
 # --- 4. DIALOGS ---
@@ -94,22 +98,20 @@ def pop_update(nama):
         if st.button("🚀 KIRIM ABSEN SEKARANG"):
             f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
             form_url = f"https://docs.google.com/forms/d/e/{f_id}/formResponse"
-            # LOGIKA PENGIRIMAN SEPERTI KODE DESKTOP
             payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
             try:
-                res = requests.post(form_url, data=payload, timeout=10)
-                st.success(f"Absen {nama} Berhasil!")
-                time.sleep(1); st.rerun()
-            except: st.error("Gagal terhubung ke Form.")
+                requests.post(form_url, data=payload, timeout=10)
+                st.success(f"Absen {nama} Terkirim!"); time.sleep(1.5); st.rerun()
+            except: st.error("Gagal terhubung ke Google Form.")
     else:
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja:")
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             requests.post(SCRIPT_LAPKIN, json=payload)
-            st.success("Tersimpan (Replace OK)!"); time.sleep(1); st.rerun()
+            st.success("Tersimpan (Replace Ok)!"); time.sleep(1); st.rerun()
 
-@st.dialog("Laporan Bulanan")
+@st.dialog("Download Laporan")
 def pop_cetak():
     c_b = st.selectbox("Pilih Bulan:", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"], index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
@@ -117,7 +119,6 @@ def pop_cetak():
         df = get_clean_df(URL_LAPKIN)
         if df is not None:
             df['ts_str'] = df.iloc[:, 0].astype(str)
-            m_idx = f"{datetime.now(wita_tz).month:02d}"
             df_f = df[(df.iloc[:, 1] == c_n)].copy()
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
@@ -128,11 +129,12 @@ def pop_cetak():
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
                     header = [["LAPORAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [], ["Bulan", f": {c_b}"], ["Nama", f": {c_n}"], ["Jabatan", f": {info[1]}"], ["Unit Kerja", f": {info[2]}"], ["Sub Bagian", f": {info[3]}"], [], ["Hasil Kinerja", ":"], ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]]
                     body = [[i+1, pd.to_datetime(r.iloc[0], dayfirst=True).strftime('%d %B %Y'), f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] for i, (_, r) in enumerate(df_f.iterrows())]
+                    # SINGLE SIGNATURE KANAN
                     footer = [[], ["", "", "", f"Kandangan, {tgl_footer}"], ["", "", "", "Atasan Langsung,"], ["", "", "", "Kepala Sub Bagian," if "Sekretaris" not in info[1] else "Ketua KPU,"], [], [], [], ["", "", "", info[5]], ["", "", "", info[6]]]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(footer).to_excel(writer, startrow=11+len(body), index=False, header=False, sheet_name="Laporan")
-                st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{c_n}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button("📥 DOWNLOAD LAPORAN", out.getvalue(), f"LAPORAN_{c_n}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
 # --- 5. MAIN UI ---
 st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
@@ -143,12 +145,7 @@ with mid:
     with col_a: 
         if st.button("🔄 REFRESH"): st.rerun()
     with col_b: pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
-    with col_c: 
-        if st.button("📥 REKAP"): 
-             df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
-             if df1 is not None:
-                 out = BytesIO(); pd.concat([df1, df2]).to_excel(out, index=False)
-                 st.download_button("📥 REKAP TOTAL", out.getvalue(), "REKAP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    with col_c: st.button("📥 REKAP")
     with col_d: 
         if st.button("🖨️ DOWNLOAD"): pop_cetak()
 
@@ -162,19 +159,23 @@ def render_ui(urls, masters, tgl_target, tab_id):
         if df_t is not None: all_dfs.append(df_t)
     if not all_dfs: return
     df = pd.concat(all_dfs, ignore_index=True)
-    d_f1 = tgl_target.strftime('%d/%m/%Y')
-    d_f2 = tgl_target.strftime('%Y-%m-%d')
+    
+    # Logika Tanggal (Support berbagai format)
+    d_f1, d_f2 = tgl_target.strftime('%d/%m/%Y'), tgl_target.strftime('%Y-%m-%d')
+    
     log = {}
     for _, r in df.iterrows():
         ts = str(r.iloc[0])
         if d_f1 in ts or d_f2 in ts:
-            nama_raw = str(r.iloc[1]).strip().lower().replace(",", "")
+            nama_raw = clean_name(r.iloc[1])
             dt = pd.to_datetime(ts, errors='coerce')
             if pd.isna(dt): continue
-            matched_master = next((m for m in masters if m.lower().strip().replace(",", "") == nama_raw), None)
+            matched_master = next((m for m in masters if clean_name(m) == nama_raw), None)
             if matched_master:
-                if matched_master not in log: log[matched_master] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
+                if matched_master not in log:
+                    log[matched_master] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
                 if dt.hour >= 15: log[matched_master]["p"] = dt.strftime("%H:%M")
+
     for i, p in enumerate(masters, 1):
         d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
         st_cls = "status-hadir" if d['k'] == "HADIR" else "status-terlambat" if d['k'] == "TERLAMBAT" else "status-alpa"
