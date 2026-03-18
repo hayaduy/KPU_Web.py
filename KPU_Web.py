@@ -9,7 +9,7 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v89.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v90.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 LIBUR_DAN_CUTI_2026 = {
@@ -25,6 +25,7 @@ LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "A
 
 st.markdown("""
     <style>
+    /* Layout Utama */
     .stApp { background: linear-gradient(135deg, #450a0a 0%, #000000 50%, #7c2d12 100%); background-attachment: fixed; }
     .block-container { max-width: 1050px; padding-top: 5rem !important; }
     .header-box { text-align: center; color: #F59E0B; font-size: 32px; font-weight: bold; margin-bottom: 5px; }
@@ -39,13 +40,31 @@ st.markdown("""
     .stButton>button { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2) !important; color: white !important; border-radius: 8px; font-weight: bold; }
     [data-testid="stSidebar"] { display: none; }
     
-    /* CSS Tambahan agar Pop Up Terbaca Jelas */
-    div[data-testid="stDialog"] { background-color: #1a1a1a !important; color: white !important; }
-    div[role="radiogroup"] label { color: white !important; font-weight: bold !important; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 10px; }
+    /* FIX POP UP UNTUK SMARTPHONE - DARK THEME SOLID */
+    div[data-testid="stDialog"] div[role="dialog"] {
+        background-color: #121212 !important;
+        border: 1px solid #F59E0B !important;
+    }
+    div[data-testid="stDialog"] h1, div[data-testid="stDialog"] p, div[data-testid="stDialog"] label {
+        color: white !important;
+    }
+    /* Memperjelas Radio Button (Absen & Lapkin) */
+    div[role="radiogroup"] label {
+        background-color: #262626 !important;
+        padding: 10px !important;
+        border-radius: 8px !important;
+        margin-bottom: 5px !important;
+        border: 1px solid #404040 !important;
+    }
+    div[role="radiogroup"] label p {
+        color: #F59E0B !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION ---
+# --- 2. CONFIGURATION & DATABASE ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -106,13 +125,9 @@ def clean_logic(name):
 # --- 4. DIALOGS ---
 @st.dialog("Update Data")
 def pop_update(nama):
-    st.markdown('<div style="color:white; font-size:18px;">Input Data untuk:</div>', unsafe_allow_html=True)
-    st.write(f"**{nama}**")
-    
-    # Background diperjelas agar radio button kontras
+    st.write(f"Pegawai: **{nama}**")
     tipe = st.radio("Pilih Kegiatan:", ["Absen", "Lapkin"])
     info = DATABASE_INFO[nama]
-    
     if tipe == "Absen":
         if st.button("🚀 KIRIM ABSEN SEKARANG"):
             f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
@@ -130,7 +145,7 @@ def pop_update(nama):
 
 @st.dialog("Advanced Rekap Excel", width="large")
 def pop_rekap():
-    st.markdown("### 📊 FILTER REKAP")
+    st.markdown("### 📊 FILTER REKAP LENGKAP")
     c1, c2 = st.columns(2)
     with c1: r_bulan = st.selectbox("Pilih Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
     with c2: r_tahun = st.selectbox("Pilih Tahun:", ["2025", "2026", "2027"], index=1)
@@ -169,7 +184,6 @@ def pop_cetak():
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
                 atasan_nama = info[5]
-                # Logika Jabatan Sekretaris Pak Suwanto
                 if atasan_nama == "Suwanto, SH., MH.": j_atasan = "Sekretaris KPU Kab. Hulu Sungai Selatan"
                 elif "Sekretaris" in info[1]: j_atasan = "Ketua KPU Kab. Hulu Sungai Selatan"
                 else:
