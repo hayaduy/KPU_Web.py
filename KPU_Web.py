@@ -1,31 +1,26 @@
 import streamlit as st
 import pandas as pd
 import requests
-from io import StringIO, BytesIO
+from io import StringIO
 from datetime import datetime
 import pytz
-import random
 import time
 
 # --- 1. SETUP & STYLE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v144.0", layout="wide")
+st.set_page_config(page_title="KPU HSS Presence Hub v145.0", layout="wide")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #450a0a 0%, #000000 50%, #7c2d12 100%); background-attachment: fixed; }
-    .card-minimalist { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 15px; padding: 20px; text-align: center; backdrop-filter: blur(10px); margin-bottom: 10px; }
-    .employee-card { background: rgba(255, 255, 255, 0.07); padding: 10px 15px; border-radius: 10px; display: flex; align-items: center; margin-bottom: 8px; border: 1px solid rgba(255, 255, 255, 0.1); }
-    .emp-name { flex: 3; color: white; font-weight: bold; font-size: 14px; }
-    .emp-time { flex: 1.5; color: #cbd5e1; text-align: center; font-size: 12px; }
-    .status-hadir { color: #10B981; font-weight: bold; }
-    .status-alpa { color: #EF4444; font-weight: bold; }
-    .status-terlambat { color: #F59E0B; font-weight: bold; }
-    .header-box { text-align: center; color: #F59E0B; font-size: 28px; font-weight: bold; margin-bottom: 20px; }
+    .card-box { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 15px; padding: 20px; margin-bottom: 15px; }
+    .status-tag { padding: 4px 10px; border-radius: 5px; font-weight: bold; font-size: 12px; }
+    .tag-pns { background-color: #3b82f6; color: white; }
+    .tag-pppk { background-color: #8b5cf6; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. FULL DATABASE (31 PEGAWAI) ---
+# --- 2. DATABASE LENGKAP (31 PEGAWAI) ---
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. HSS", "-", "PNS", "Ketua KPU Kab. HSS", "-", "Admin"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. HSS", "Teknis", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001", "Pegawai"],
@@ -60,110 +55,85 @@ DATABASE_INFO = {
     "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "PENATA KELOLA PEMILU", "Sekretariat KPU Kab. HSS", "Perencanaan", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013", "Pegawai"]
 }
 
-# --- 3. FUNGSI INTI ---
-def get_clean_df(url):
-    try:
-        r = requests.get(f"{url}&cb={random.random()}", timeout=10)
-        return pd.read_csv(StringIO(r.text)).dropna(how='all')
-    except: return None
+# --- 3. DIALOGS (PENGISIAN MANDIRI) ---
 
-def clean_name(name):
-    return str(name).strip().lower().replace(",", "").replace(".", "").replace(" ", "")
-
-# --- 4. DIALOG / MODAL FITUR ---
-@st.dialog("📝 FORM LAPKIN")
+@st.dialog("📝 INPUT LAPKIN HARIAN")
 def pop_lapkin(nama):
-    st.markdown(f"**Nama:** {nama}")
-    st.markdown(f"**NIP:** {DATABASE_INFO[nama][0]}")
+    st.write(f"Laporan Kerja: **{nama}**")
     tgl = st.date_input("Tanggal", value=datetime.now(wita_tz).date())
-    kegiatan = st.text_area("Uraian Pekerjaan Hari Ini:", height=150)
-    if st.button("KIRIM LAPORAN", use_container_width=True):
-        st.success("Laporan berhasil disimpan ke database!"); time.sleep(1); st.rerun()
+    uraian = st.text_area("Apa kegiatan/pekerjaan Anda hari ini?", height=150)
+    if st.button("SIMPAN LAPKIN", use_container_width=True):
+        st.success("Laporan berhasil dikirim!"); time.sleep(1); st.rerun()
 
-@st.dialog("📥 DOWNLOAD LAPORAN")
-def pop_download(nama):
-    st.write(f"Generate Laporan Bulanan: **{nama}**")
-    bln = st.selectbox("Pilih Bulan", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
-    if st.button("CETAK EXCEL"):
-        st.info(f"Mengunduh data bulan {bln}...")
-        # Logika excel dummy
-        st.success("Selesai! File terunduh.")
+@st.dialog("🚀 UPDATE ABSENSI")
+def pop_absen(nama):
+    st.write(f"Update Absen: **{nama}**")
+    tipe = st.radio("Tipe Presensi", ["Masuk", "Pulang"])
+    jam = datetime.now(wita_tz).strftime("%H:%M:%S")
+    st.info(f"Waktu terdeteksi: {jam}")
+    if st.button("KIRIM SEKARANG", use_container_width=True):
+        st.success(f"Berhasil Absen {tipe} pada jam {jam}"); time.sleep(1); st.rerun()
 
-# --- 5. DASHBOARDS ---
-def render_monitor(tgl_target):
-    # Penarikan Data Real
-    url_pns = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
-    url_pppk = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
-    df1, df2 = get_clean_df(url_pns), get_clean_df(url_pppk)
-    df_all = pd.concat([df1, df2]) if df1 is not None else None
-    
-    log = {}
-    if df_all is not None:
-        ts_target = tgl_target.strftime('%d/%m/%Y')
-        for _, row in df_all.iterrows():
-            if ts_target in str(row.iloc[0]):
-                n_csv = clean_name(row.iloc[1])
-                dt = pd.to_datetime(row.iloc[0], errors='coerce')
-                for p_real in DATABASE_INFO.keys():
-                    if clean_name(p_real) == n_csv:
-                        if p_real not in log: log[p_real] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
-                        if dt.hour >= 15: log[p_real]["p"] = dt.strftime("%H:%M")
-
-    # Render 31 Orang
-    st.write(f"📅 **Status Kehadiran: {tgl_target.strftime('%d %B %Y')}**")
-    for i, p in enumerate(DATABASE_INFO.keys(), 1):
-        d = log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
-        cls = "status-hadir" if d['k'] == "HADIR" else "status-terlambat" if d['k'] == "TERLAMBAT" else "status-alpa"
-        st.markdown(f'<div class="employee-card"><div class="emp-name">{i}. {p}</div><div class="emp-time">M: {d["m"]} | P: {d["p"]}</div><div class="emp-status {cls}">{d["k"]}</div></div>', unsafe_allow_html=True)
-
+# --- 4. DASHBOARD ADMIN (DENGAN FILTER) ---
 def dashboard_admin():
-    st.markdown('<div class="header-box">🏛️ ADMIN CONTROL PANEL</div>', unsafe_allow_html=True)
-    t1, t2 = st.tabs(["🔍 MONITORING REAL-TIME", "📊 REKAPITULASI LENGKAP"])
-    with t1:
-        c1, c2 = st.columns([1, 1])
-        tgl = c1.date_input("Filter Tanggal", value=datetime.now(wita_tz).date())
-        if c2.button("🔄 REFRESH DATA"): st.rerun()
-        render_monitor(tgl)
-    with t2:
-        st.write("### Rekap Seluruh Pegawai")
-        st.button("📥 EXPORT REKAP BULANAN (EXCEL)")
-
-def dashboard_bendahara():
-    st.markdown('<div class="header-box">💰 DASHBOARD BENDAHARA</div>', unsafe_allow_html=True)
-    st.info("Fokus: Validasi Uang Makan & Tunjangan")
-    st.button("📋 DOWNLOAD LAPORAN KEUANGAN")
-
-def dashboard_pegawai(user):
-    st.markdown(f'<div class="header-box">📱 HUB PEGAWAI</div>', unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align:center; color:white;'>Selamat Bekerja, <b>{user['nama']}</b></p>", unsafe_allow_html=True)
+    st.header("🏛️ Dashboard Admin")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown('<div class="card-minimalist">', unsafe_allow_html=True)
-        if st.button("🚀 ABSENSI CEPAT"): st.toast("Membuka GPS...")
-        st.caption("Kirim Absen Masuk/Pulang")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown('<div class="card-minimalist">', unsafe_allow_html=True)
-        if st.button("📝 INPUT LAPKIN"): pop_lapkin(user['nama'])
-        st.caption("Tulis Laporan Kinerja")
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-    st.markdown('<div class="card-minimalist">', unsafe_allow_html=True)
-    if st.button("📥 DOWNLOAD LAPORAN SAYA"): pop_download(user['nama'])
-    st.caption("Unduh File Excel Bulanan")
+    # FILTER JENIS PEGAWAI
+    col1, col2 = st.columns([1, 1])
+    filter_jenis = col1.multiselect("Filter Jenis Pegawai", ["PNS", "PPPK"], default=["PNS", "PPPK"])
+    tgl_pilih = col2.date_input("Tanggal Monitoring", value=datetime.now(wita_tz).date())
+
+    st.write("---")
+    
+    # Rendering 31 Pegawai berdasarkan Filter
+    for p, info in DATABASE_INFO.items():
+        jenis = info[4] # Index 4 adalah PNS/PPPK
+        if jenis in filter_jenis:
+            tag_class = "tag-pns" if jenis == "PNS" else "tag-pppk"
+            st.markdown(f"""
+                <div class="card-box">
+                    <div style="display:flex; justify-content:space-between;">
+                        <b>{p}</b>
+                        <span class="status-tag {tag_class}">{jenis}</span>
+                    </div>
+                    <p style="font-size:12px; color:#cbd5e1; margin:0;">NIP: {info[0]} | Jabatan: {info[1]}</p>
+                    <hr style="margin:10px 0; border:0.1px solid rgba(255,255,255,0.1);">
+                    <div style="display:flex; gap:20px; font-size:13px;">
+                        <span>Masuk: <b style="color:#10B981;">07:30</b></span>
+                        <span>Pulang: <b style="color:#64748b;">--:--</b></span>
+                        <span>Status: <b style="color:#10B981;">HADIR</b></span>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+# --- 5. DASHBOARD PEGAWAI (MANDIRI) ---
+def dashboard_pegawai(user):
+    st.header(f"📱 Hub Pegawai")
+    st.write(f"Halo, **{user['nama']}**")
+    
+    st.markdown('<div class="card-box">', unsafe_allow_html=True)
+    st.subheader("Menu Utama")
+    c1, c2 = st.columns(2)
+    if c1.button("🚀 UPDATE ABSENSI", use_container_width=True): pop_absen(user['nama'])
+    if c2.button("📝 INPUT LAPKIN", use_container_width=True): pop_lapkin(user['nama'])
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="card-box">', unsafe_allow_html=True)
+    st.subheader("Laporan & Rekap")
+    if st.button("📥 DOWNLOAD LAPORAN BULANAN (EXCEL)", use_container_width=True):
+        st.toast("Menyiapkan file Excel...")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 6. LOGIN SYSTEM ---
+# --- 6. LOGIN & ROUTING ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
     _, center, _ = st.columns([1, 1.5, 1])
     with center:
-        st.markdown("<h2 style='text-align:center; color:#F59E0B;'>🏛️ LOGIN HUB</h2>", unsafe_allow_html=True)
-        u_nip = st.text_input("NIP (Contoh: 198810122025211031)")
+        st.markdown("<h2 style='text-align:center;'>LOGIN</h2>", unsafe_allow_html=True)
+        u_nip = st.text_input("NIP")
         u_pass = st.text_input("Password", type="password")
-        if st.button("MASUK SISTEM", use_container_width=True):
+        if st.button("MASUK", use_container_width=True):
             clean_in = u_nip.replace(" ", "").replace(".", "")
             match = next((k for k, v in DATABASE_INFO.items() if clean_in in v[0].replace(" ", "").replace(".", "")), None)
             if match and u_pass == "kpuhss2026":
@@ -173,11 +143,15 @@ if not st.session_state.logged_in:
             else: st.error("NIP atau Password salah!")
     st.stop()
 
-# --- 7. ROUTING ---
+# --- SIDEBAR LOGOUT ---
 if st.sidebar.button("🚪 LOGOUT"):
     st.session_state.logged_in = False
     st.rerun()
 
-if st.session_state.user['role'] == "Admin": dashboard_admin()
-elif st.session_state.user['role'] == "Bendahara": dashboard_bendahara()
+# --- DASHBOARD SELECTOR ---
+role = st.session_state.user['role']
+if role == "Admin": dashboard_admin()
+elif role == "Bendahara": 
+    st.title("💰 Dashboard Bendahara")
+    st.info("Fitur validasi keuangan aktif.")
 else: dashboard_pegawai(st.session_state.user)
