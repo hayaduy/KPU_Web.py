@@ -10,17 +10,18 @@ from math import radians, cos, sin, asin, sqrt
 from streamlit_js_eval import get_geolocation
 
 # --- 1. SETUP PAGE & SESSION ---
-st.set_page_config(page_title="KPU HSS Presence Hub v104.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v105.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_data = None
 
-# --- CONFIGURATION (LINK DATABASE LOGIN) ---
-# Menggunakan link pubhtml yang Abang berikan dan dikonversi otomatis ke CSV
-RAW_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSl2RdRthniRbPIJXmMRPdDlLADmpNTZYO9fY9NixfjdrSWd4UKrzoFH_8ZcxYg1_y2thPdkqUi5CIQ/pub?output=csv"
-URL_SCRIPT_AUTH = "https://script.google.com/macros/s/AKfycbzOWseeMMdUgO0Wdd5_4kAc0rpqbzqjAiDwaWhsPK9WPsvNdu1SstxXjdY-MBMex4Gt/exec"
+# --- CONFIGURATION (LINK DATABASE) ---
+# Link Spreadsheet Login (CSV Format)
+URL_LOGIN_DB = "https://docs.google.com/spreadsheets/d/1Gn7DKaT71-ePG7uQPdWOgrKiKZK5qTXWrolXQRIs4s4/export?format=csv"
+# URL SCRIPT TERBARU YANG ABANG BERIKAN
+URL_SCRIPT_AUTH = "https://script.google.com/macros/s/AKfycbxUQjn_F4S1PCVvNAekKqo-vWzgHMFn81ri3VOMWTgbTe_nDmOrb9NLbd41UjQZ5npl/exec"
 
 # Database Hasil & Form (Tetap)
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -35,13 +36,13 @@ E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.15900964
 LAT_KANTOR, LON_KANTOR, RADIUS_METER = -2.775087, 115.228639, 100
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 2. DATA PEGAWAI (31 ORANG - FULL) ---
+# --- 2. DATA PEGAWAI (31 ORANG LENGKAP) ---
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
-    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
-    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
-    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum and SDM", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
-    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data dan Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
+    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis...", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
+    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan...", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
+    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum and SDM", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum...", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
+    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data dan Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan...", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Suci Lestari, S.Ikom": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis...", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Athaya Insyira Khairani, S.H": ["20010712202506 2 017", "Penyusun Materi Hukum...", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis...", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Muhammad Ibnu Fahmi, S.H.": ["20010608202506 1 007", "Penyusun Materi Hukum...", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis...", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004"],
@@ -79,14 +80,11 @@ def hitung_jarak(lat1, lon1, lat2, lon2):
 
 def load_auth_db():
     try:
-        # Request langsung ke endpoint CSV
-        response = requests.get(RAW_URL, timeout=10)
-        df = pd.read_csv(StringIO(response.text))
+        r = requests.get(f"{URL_LOGIN_DB}&cb={random.random()}", timeout=10)
+        df = pd.read_csv(StringIO(r.text))
         df['NIP'] = df['NIP'].astype(str).str.replace(" ", "")
         return df
-    except Exception as e:
-        st.error(f"Error memuat Database Login: {e}")
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
 # --- 4. CSS STYLING ---
 st.markdown("""
@@ -100,34 +98,31 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 5. DIALOGS ---
-@st.dialog("Presensi & Laporan Harian", width="large")
+@st.dialog("Update Presensi & Lapkin", width="large")
 def pop_update(nama):
-    st.subheader(f"Pegawai: {nama}")
+    st.write(f"Pegawai: **{nama}**")
     loc = get_geolocation()
     if loc:
-        lat_u, lon_u = loc['coords']['latitude'], loc['coords']['longitude']
-        jarak = hitung_jarak(lat_u, lon_u, LAT_KANTOR, LON_KANTOR)
-        st.info(f"📍 Jarak Anda: {int(jarak)} meter dari kantor.")
+        jarak = hitung_jarak(loc['coords']['latitude'], loc['coords']['longitude'], LAT_KANTOR, LON_KANTOR)
+        st.info(f"📍 Posisi: {int(jarak)}m dari kantor")
         
-        tab1, tab2 = st.tabs(["🚀 ABSENSI", "📝 LAPORAN KERJA"])
-        with tab1:
+        mode = st.radio("Kegiatan:", ["Absensi Kedatangan", "Laporan Kerja (Lapkin)"])
+        if mode == "Absensi Kedatangan":
             if jarak <= RADIUS_METER:
-                if st.button("KIRIM ABSEN SEKARANG", use_container_width=True):
+                if st.button("KIRIM ABSEN"):
                     info = DATABASE_INFO[nama]
                     f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
                     requests.post(f"https://docs.google.com/forms/d/e/{f_id}/formResponse", data={E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"})
-                    st.success("Absen Berhasil!"); time.sleep(1); st.rerun()
-            else:
-                st.error("MAAF, TOMBOL TERKUNCI. Anda berada di luar radius 100 meter.")
-        with tab2:
-            st_kerja = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar"])
-            h_kerja = st.text_area("Uraian Pekerjaan:")
-            if st.button("SIMPAN LAPKIN", use_container_width=True):
+                    st.success("Terkirim!"); time.sleep(1); st.rerun()
+            else: st.error("Terkunci! Harus berada di radius 100m.")
+        else:
+            stat = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar"])
+            uraian = st.text_area("Uraian Pekerjaan:")
+            if st.button("SIMPAN LAPORAN"):
                 info = DATABASE_INFO[nama]
-                requests.post(SCRIPT_LAPKIN, json={"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_kerja, "hasil": h_kerja})
-                st.success("Laporan Tersimpan!"); time.sleep(1); st.rerun()
-    else:
-        st.warning("Mohon izinkan akses lokasi (GPS) pada browser Anda.")
+                requests.post(SCRIPT_LAPKIN, json={"nama": nama, "nip": info[0], "jabatan": info[1], "status": stat, "hasil": uraian})
+                st.success("Tersimpan!"); time.sleep(1); st.rerun()
+    else: st.warning("Aktifkan GPS!")
 
 # --- 6. AUTH LOGIN ---
 if not st.session_state.logged_in:
@@ -137,7 +132,7 @@ if not st.session_state.logged_in:
         with st.container(border=True):
             u_in = st.text_input("Username (NIP tanpa spasi)")
             p_in = st.text_input("Password", type="password")
-            if st.button("MASUK SISTEM", use_container_width=True):
+            if st.button("MASUK", use_container_width=True):
                 df_u = load_auth_db()
                 if not df_u.empty:
                     match = df_u[df_u['NIP'] == u_in.strip()]
@@ -145,36 +140,34 @@ if not st.session_state.logged_in:
                         st.session_state.logged_in = True
                         st.session_state.user_data = match.iloc[0].to_dict()
                         st.rerun()
-                    else: st.error("NIP atau Password salah.")
-                else: st.error("Database tidak dapat diakses. Hubungi Admin.")
+                    else: st.error("Cek NIP/Password.")
+                else: st.error("Database Login Tidak Terbaca.")
     st.stop()
 
-# --- 7. MAIN DASHBOARD ---
+# --- 7. MAIN UI ---
 u = st.session_state.user_data
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/4/46/KPU_Logo.svg", width=60)
 st.sidebar.write(f"Halo, **{u['Nama']}**")
-if st.sidebar.button("🚪 KELUAR"):
+if st.sidebar.button("Log Out"):
     st.session_state.logged_in = False
     st.rerun()
 
 st.title("🏛️ Presence Hub KPU HSS")
 st.markdown('<div class="card-user">', unsafe_allow_html=True)
-st.subheader(f"Profil: {u['Nama']}")
+st.write(f"Role: {u['Role']}")
 c1, c2, c3 = st.columns(3)
 with c1:
     if st.button("✨ UPDATE HARIAN", use_container_width=True): pop_update(u['Nama'])
 with c2:
-    if st.button("📊 DOWNLOAD LAPKIN", use_container_width=True): st.toast("Menyiapkan dokumen...")
+    if st.button("📊 CETAK LAPKIN", use_container_width=True): st.toast("Menyiapkan dokumen...")
 with c3:
     with st.expander("🔐 GANTI PASSWORD"):
-        p_new = st.text_input("Baru", type="password")
+        p_new = st.text_input("Pass Baru", type="password")
         if st.button("SIMPAN"):
             requests.post(URL_SCRIPT_AUTH, json={"nip": u['NIP'], "action": "update_password", "new_password": p_new})
-            st.success("Tersimpan di Spreadsheet!")
+            st.success("Tersimpan!")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Panel Monitoring Admin
 if u['Role'] in ["Admin", "Bendahara"]:
-    st.subheader("🖥️ Panel Monitoring Kehadiran")
+    st.subheader("🖥️ Monitoring Kehadiran (31 Pegawai)")
     for i, p in enumerate(DATABASE_INFO.keys(), 1):
         st.markdown(f'<div class="employee-card"><div>{i}. {p}</div><div class="status-alpa">ALPA</div></div>', unsafe_allow_html=True)
