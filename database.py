@@ -41,7 +41,7 @@ DATABASE_INFO = {
     "Jainal Abidin": ["198207122009101001", "Pengelola layanan operasional", "kpuhss2026", "pegawai", "PNS"],
     "Syaiful Anwar": ["197411272007101001", "Penata Kelola Sistem dan Teknologi Informasi", "kpuhss2026", "bendahara", "PNS"],
     "M Satria Maipadly": ["198905262024211016", "Ahli Pertama-Penata Kelola Pemilu", "kpuhss2026", "pegawai", "PPPK"],
-    "Abdurrahman": ["199211022024061001", "Operator Layanan Operasional", "kpuhss2026", "admin", "PPPK"],
+    "Abdurrahman": ["198810122025211031", "Operator Layanan Operasional", "kpuhss2026", "admin", "PPPK"],
 }
 
 # --- MASTER LIST ---
