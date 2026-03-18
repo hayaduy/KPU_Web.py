@@ -44,7 +44,7 @@ if 'user_db' not in st.session_state:
         "198906222025212027": {"nama": "Emaliani", "pass": "kpuhss2026", "role": "PEGAWAI"},
         "199906062025212036": {"nama": "Nadianti", "pass": "kpuhss2026", "role": "PEGAWAI"},
         "198905262024211016": {"nama": "M Satria Maipadly", "pass": "kpuhss2026", "role": "PEGAWAI"},
-        "198810122025211031": {"nama": "Abdurrahman", "pass": "kpuhss2026", "role": "PEGAWAI"},
+        "198810122025211031": {"nama": "Abdurrahman", "pass": "kpuhss2026", "role": "ADMIN"},
         "198904222024211013": {"nama": "Apriadi Rakhman", "pass": "kpuhss2026", "role": "PEGAWAI"},
         "199603212025211031": {"nama": "Muhammad Hafiz Rijani, S.KOM", "pass": "kpuhss2026", "role": "PEGAWAI"}
     }
