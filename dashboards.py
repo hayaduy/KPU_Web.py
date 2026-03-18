@@ -10,7 +10,7 @@ from core_logic import process_attendance, URL_PNS, URL_PPPK
 # --- 1. KONFIGURASI URL ---
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
-URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbxhhNvz5thj5PjA5W19Te02c2E3zueN-QEfNf9nF5El0rfToXK9A8qjNZVpiqnqLyLD/exec"
+URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
 
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
               "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
