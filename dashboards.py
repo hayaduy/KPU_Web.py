@@ -6,8 +6,8 @@ from database import DATABASE_INFO, MASTER_PNS, MASTER_PPPK
 from core_logic import process_attendance, URL_PNS, URL_PPPK 
 
 # --- 1. KONFIGURASI SEMUA URL ENDPOINT ---
-URL_API_PNS = "https://script.google.com/macros/s/AKfycbxjZ8flZ-x_swbHDN4QtCLmLXaNixEej9vpJFWr74ilkLyvnxkjuFhmMsfz10EGnS8aAQ/exec"
-URL_API_PPPK = "https://script.google.com/macros/s/AKfycbzMqbrpjUzn-bpMWicc7VPOPp_dypAhDJDZxSqTjf2ufSXsE3l5xvGwfVNGyGMbzAg/exec"
+URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
+URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
 URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbzJ_gHm4clqncelQOKDdHR6UK9wiTXgMNSqLMQnBBNVCg4F-Arnch062h6Xaxo3Excd/exec"
 
 # --- 2. CSS CUSTOM ---
