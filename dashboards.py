@@ -8,7 +8,7 @@ from core_logic import process_attendance, URL_PNS, URL_PPPK
 # --- 1. KONFIGURASI SEMUA URL ENDPOINT ---
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbxjZ8flZ-x_swbHDN4QtCLmLXaNixEej9vpJFWr74ilkLyvnxkjuFhmMsfz10EGnS8aAQ/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbzfBtzxkav_uDsJcKv-nTO5i8Yt_AebAxSCEJ6HRKfqXJOJ0FL7e5easfQT7fd-LZ1A/exec"
-URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbx39R5DaKM7nWkDIEs2X_C4HINUNRgrAhEiuPMq76C2cmhgwTPVTO53bPwC7AePllHP/exec"
+URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbzJ_gHm4clqncelQOKDdHR6UK9wiTXgMNSqLMQnBBNVCg4F-Arnch062h6Xaxo3Excd/exec"
 
 # --- 2. CSS CUSTOM ---
 def inject_custom_css():
