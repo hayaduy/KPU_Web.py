@@ -1,92 +1,28 @@
 import streamlit as st
 import pandas as pd
 import requests
-from io import StringIO, BytesIO
+from io import StringIO
 from datetime import datetime
-import calendar
 import pytz
 import random
 import time
-from math import radians, cos, sin, asin, sqrt
 
-# --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v125.0", layout="wide", page_icon="🏛️")
+# --- 1. SETUP PAGE & TIMEZONE ---
+st.set_page_config(page_title="KPU HSS Presence Hub v126.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.user_info = None
-
-# URL DATABASE LOGIN (Pastikan sudah di-Publish as CSV di Google Sheets)
-# --- DATABASE LOGIN URL (LINK DATABASE USER SAJA) ---
-# Pastikan link ini adalah hasil "Publish as CSV" dari sheet login yang Abang kirim
+# --- 2. DATABASE URLS ---
+# Link Database USER LOGIN (Link yang Abang kirim terakhir)
+# PASTIKAN DI GOOGLE SHEETS: File > Share > Publish to Web > Format CSV
 URL_LOGIN_DB = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSgD2ZIn-v09m3HnI5z96v5S1HwzXyV2hN0tUjW0X7_e9-N5_G-eG9_o-kXQ/pub?output=csv"
 
-# --- LOGIKA LOGIN (MENGGUNAKAN NIP MODIFIKASI) ---
-def check_login(nip_input, pass_input):
-    try:
-        # Mengambil data user secara real-time dari database login
-        r = requests.get(f"{URL_LOGIN_DB}&cb={random.random()}")
-        df_login = pd.read_csv(StringIO(r.text))
-        
-        # Membersihkan input NIP (menghilangkan spasi jika user tidak sengaja mengetik spasi)
-        nip_clean = str(nip_input).replace(" ", "")
-        
-        # Validasi NIP, Password, dan Role
-        user_row = df_login[(df_login['NIP'].astype(str) == nip_clean) & 
-                            (df_login['PASSWORD'].astype(str) == str(pass_input))]
-        
-        if not user_row.empty:
-            return {
-                "nama": user_row.iloc[0]['NAMA'], 
-                "role": user_row.iloc[0]['ROLE'].upper(),
-                "nip_asli": user_row.iloc[0]['NIP']
-            }
-    except Exception as e:
-        st.error(f"Gagal menghubungkan ke Database Login: {e}")
-        return None
-    return None
-
-# --- DATABASE PEGAWAI TETAP (UNTUK ABSENSI ORIGINAL) ---
-# Nama-nama di sini akan dicocokkan dengan data 'NAMA' dari Database Login
-DATABASE_INFO = {
-    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
-    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
-    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
-    # ... (31 Nama lengkap tetap ada sesuai permintaan Abang)
-}
-
-# --- PROSES LOGIN DI UI ---
-if not st.session_state.logged_in:
-    _, col_login, _ = st.columns([1, 1.2, 1])
-    with col_login:
-        st.markdown("<h2 style='text-align:center; color:#F59E0B;'>🏛️ LOGIN SISTEM</h2>", unsafe_allow_html=True)
-        u_nip = st.text_input("NIP (Sesuai Database Login)")
-        u_pass = st.text_input("Password", type="password")
-        
-        if st.button("MASUK", use_container_width=True):
-            user_found = check_login(u_nip, u_pass)
-            if user_found:
-                st.session_state.logged_in = True
-                st.session_state.user_info = user_found
-                st.success(f"Selamat Datang, {user_found['nama']}")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("NIP atau Password salah!")
-    st.stop()
-
-# --- SETELAH LOGIN ---
-# Nama yang digunakan untuk filter dashboard/update diambil dari user_found['nama']
-current_user_name = st.session_state.user_info['nama']
-
-# URL DATABASE ABSENSI & LAPKIN
+# Link Database ABSENSI & LAPKIN ORIGINAL
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
 SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
 
-# --- DATABASE PEGAWAI (FULL 31 ORG) ---
+# --- 3. DATABASE PEGAWAI ORIGINAL (31 ORG) ---
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
@@ -123,9 +59,8 @@ DATABASE_INFO = {
 
 MASTER_PNS = [k for k, v in DATABASE_INFO.items() if v[4] == "PNS"]
 MASTER_PPPK = [k for k, v in DATABASE_INFO.items() if v[4] == "PPPK"]
-LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- CSS ---
+# --- 4. CSS STYLING ---
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #450a0a 0%, #000000 50%, #7c2d12 100%); background-attachment: fixed; }
@@ -138,19 +73,28 @@ st.markdown("""
     .status-hadir { color: #10B981; }
     .status-alpa { color: #EF4444; }
     .status-terlambat { color: #F59E0B; }
-    .stButton>button { background: rgba(255, 255, 255, 0.1) !important; color: white !important; border-radius: 8px; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. LOGIN LOGIC ---
-def check_login(nip_user, pass_user):
+# --- 5. LOGIKA LOGIN ---
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.user_info = None
+
+def check_login(nip_input, pass_input):
     try:
         r = requests.get(f"{URL_LOGIN_DB}&cb={random.random()}")
         df_login = pd.read_csv(StringIO(r.text))
-        user_row = df_login[(df_login['NIP'].astype(str).str.replace(" ","") == nip_user.replace(" ","")) & 
-                            (df_login['PASSWORD'].astype(str) == pass_user)]
+        # Membersihkan NIP input (takut ada spasi)
+        nip_clean = str(nip_input).strip()
+        # Cari baris yang cocok
+        user_row = df_login[(df_login['NIP'].astype(str) == nip_clean) & 
+                            (df_login['PASSWORD'].astype(str) == str(pass_input))]
         if not user_row.empty:
-            return {"nama": user_row.iloc[0]['NAMA'], "role": user_row.iloc[0]['ROLE'].upper()}
+            return {
+                "nama": user_row.iloc[0]['NAMA'], 
+                "role": user_row.iloc[0]['ROLE'].upper()
+            }
     except: return None
     return None
 
@@ -158,21 +102,28 @@ if not st.session_state.logged_in:
     _, col_login, _ = st.columns([1, 1.2, 1])
     with col_login:
         st.markdown("<h2 style='text-align:center; color:#F59E0B;'>🏛️ LOGIN SISTEM</h2>", unsafe_allow_html=True)
-        u_nip = st.text_input("NIP Pegawai")
-        u_pass = st.text_input("Password", type="password")
+        u_nip = st.text_input("Masukkan NIP (Contoh: 197205212009121001)")
+        u_pass = st.text_input("Masukkan Password", type="password")
         if st.button("MASUK", use_container_width=True):
             user_found = check_login(u_nip, u_pass)
             if user_found:
                 st.session_state.logged_in = True
                 st.session_state.user_info = user_found
+                st.success(f"Login Berhasil! Selamat Datang {user_found['nama']}")
+                time.sleep(1)
                 st.rerun()
-            else: st.error("NIP atau Password salah!")
+            else:
+                st.error("NIP atau Password salah!")
     st.stop()
 
-# --- 3. HELPERS & DIALOGS (v91.0) ---
+# --- 6. MAIN INTERFACE ---
 user = st.session_state.user_info
 is_admin = user['role'] in ["ADMIN", "BENDAHARA"]
 
+st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
+
+# --- HELPERS (v91.0) ---
 def get_clean_df(url):
     try:
         r = requests.get(f"{url}&cb={random.random()}", timeout=15)
@@ -198,28 +149,23 @@ def pop_update(nama):
             requests.post(SCRIPT_LAPKIN, json=payload)
             st.success("Tersimpan!"); time.sleep(1); st.rerun()
 
-# --- 4. MAIN UI ---
-st.markdown('<div class="header-box">🏛️ MONITORING KPU HSS</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="clock-box">{datetime.now(wita_tz).strftime("%H:%M:%S WITA")}</div>', unsafe_allow_html=True)
-
+# --- NAVIGATION ---
 _, mid, _ = st.columns([0.1, 5, 0.1])
 with mid:
     cols = st.columns(4 if is_admin else 2)
     with cols[0]:
         if st.button("🔄 REFRESH"): st.rerun()
     with cols[1]:
-        pilih_tgl = st.date_input("Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
+        pilih_tgl = st.date_input("Filter Tgl", value=datetime.now(wita_tz).date(), label_visibility="collapsed")
     if is_admin:
-        with cols[2]:
-            if st.button("📥 REKAP"): st.toast("Fitur Rekap Siap")
-        with cols[3]:
-            if st.button("🖨️ CETAK"): st.toast("Fitur Cetak Siap")
+        with cols[2]: st.button("📥 REKAP")
+        with cols[3]: st.button("🖨️ CETAK")
 
 st.write("---")
 
+# --- RENDER DASHBOARD ---
 def render_ui(urls, masters, tgl_target, tab_id):
-    if not is_admin:
-        masters = [user['nama']]
+    if not is_admin: masters = [user['nama']] # Pegawai hanya lihat data sendiri
     
     all_dfs = []
     for u in urls:
@@ -250,13 +196,14 @@ def render_ui(urls, masters, tgl_target, tab_id):
         with c_side:
             if st.button("Update", key=f"btn_{p}_{tab_id}"): pop_update(p)
 
+# Tampilan berdasarkan Role
 if is_admin:
     t1, t2, t3 = st.tabs(["🌎 SEMUA", "👥 PNS", "👥 PPPK"])
     with t1: render_ui([URL_PNS, URL_PPPK], list(DATABASE_INFO.keys()), pilih_tgl, "all")
     with t2: render_ui([URL_PNS], MASTER_PNS, pilih_tgl, "pns")
     with t3: render_ui([URL_PPPK], MASTER_PPPK, pilih_tgl, "pppk")
 else:
-    st.subheader(f"Dashboard: {user['nama']}")
+    st.subheader(f"Dashboard: {user['nama']} ({user['role']})")
     render_ui([URL_PNS, URL_PPPK], [user['nama']], pilih_tgl, "pribadi")
 
 if st.sidebar.button("Keluar"):
