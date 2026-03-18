@@ -1,84 +1,123 @@
 import streamlit as st
-from database import DATABASE_INFO
-from dashboards import show_admin, show_bendahara, show_pegawai
-from streamlit_cookies_manager import EncryptedCookieManager
-import os
+import pandas as pd
+from datetime import datetime
+from database import DATABASE_INFO, MASTER_PNS, MASTER_PPPK
+from core_logic import process_attendance, URL_PNS, URL_PPPK
 
-# --- KONFIGURASI COOKIES ---
-# Ganti 'secret_password_anda' dengan kata kunci bebas untuk enkripsi
-cookies = EncryptedCookieManager(password="kpu_hss_secret_key_2026")
-if not cookies.ready():
-    st.stop()
+# --- 1. MENU MANDIRI (SEKARANG DISREMBUNYIKAN) ---
+@st.dialog("📋 MENU MANDIRI & LAPORAN")
+def pop_menu_mandiri(user):
+    st.write(f"Pegawai: **{user['nama']}**")
+    st.divider()
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🚀 ABSEN SEKARANG", use_container_width=True):
+            st.success("Form Absen Dibuka...")
+        if st.button("📊 DOWNLOAD ABSEN SAYA", use_container_width=True):
+            st.info("Mengunduh Rekap Absen...")
+            
+    with col2:
+        if st.button("📝 BUAT LAPKIN", use_container_width=True):
+            st.success("Form Lapkin Dibuka...")
+        if st.button("📄 DOWNLOAD LAPKIN SAYA", use_container_width=True):
+            st.info("Mengunduh File Lapkin...")
 
-# --- INISIALISASI SESSION STATE ---
-if 'logged_in' not in st.session_state:
-    # Cek apakah ada data login di cookies browser
-    saved_user = cookies.get("saved_user")
-    saved_role = cookies.get("saved_role")
-    
-    if saved_user and saved_role:
-        st.session_state.logged_in = True
-        st.session_state.user = {"nama": saved_user, "role": saved_role}
-    else:
-        st.session_state.logged_in = False
-        st.session_state.user = None
+def render_menu_mandiri_button(user):
+    st.markdown("### 👤 Akses Pribadi")
+    if st.button("📂 BUKA MENU MANDIRI (Absen, Lapkin & Unduhan)", use_container_width=True, type="primary"):
+        pop_menu_mandiri(user)
 
-# --- LOGIKA LOGIN ---
-if not st.session_state.logged_in:
-    st.title("🏛️ LOGIN KPU HSS")
-    st.markdown("---")
-    
-    nip = st.text_input("Masukkan NIP")
-    pwd = st.text_input("Password", type="password")
-    remember_me = st.checkbox("Simpan Login (7 Hari)")
-    
-    if st.button("Masuk", use_container_width=True):
-        # Pembersihan spasi NIP agar akurat
-        clean_nip = nip.replace(" ", "")
-        match = next((k for k, v in DATABASE_INFO.items() if clean_nip in v[0].replace(" ", "")), None)
+# --- 2. FUNGSI RENDER LIST MONITORING (LEBIH RAPI) ---
+def render_monitoring_list(list_nama, data_log):
+    if not list_nama:
+        st.caption("Tidak ada data pegawai di kategori ini.")
+        return
+
+    for p in list_nama:
+        d = data_log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
         
-        if match and pwd == "kpuhss2026":
-            role = DATABASE_INFO[match][7] if len(DATABASE_INFO[match]) > 7 else "Pegawai"
-            
-            # Set Session State
-            st.session_state.logged_in = True
-            st.session_state.user = {"nama": match, "role": role}
-            
-            # Jika checkbox dicentang, simpan ke Cookies Browser
-            if remember_me:
-                cookies["saved_user"] = match
-                cookies["saved_role"] = role
-                cookies.save()
-            
-            st.rerun()
+        # Logika Warna & Label
+        if d['k'] == "HADIR":
+            bg_color, txt_color, border = "rgba(16, 185, 129, 0.1)", "#10B981", "#10B981"
+        elif d['k'] == "TERLAMBAT":
+            bg_color, txt_color, border = "rgba(245, 158, 11, 0.1)", "#F59E0B", "#F59E0B"
         else:
-            st.error("⚠️ NIP atau Password salah!")
+            bg_color, txt_color, border = "rgba(239, 68, 68, 0.1)", "#EF4444", "#EF4444"
 
-else:
-    # --- ROUTER DASHBOARD ---
-    u = st.session_state.user
+        st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; 
+                        background: {bg_color}; padding: 12px 20px; border-radius: 10px; 
+                        margin-bottom: 8px; border: 1px solid {border}33; border-left: 5px solid {border};">
+                <div style="flex: 1;">
+                    <span style="font-weight: 600; font-size: 15px; color: #E0E0E0;">{p}</span>
+                </div>
+                <div style="display: flex; gap: 20px; font-family: 'Courier New', monospace;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 10px; color: #888;">MASUK</div>
+                        <div style="font-weight: bold; color: {txt_color};">{d['m']}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 10px; color: #888;">PULANG</div>
+                        <div style="font-weight: bold; color: {txt_color};">{d['p']}</div>
+                    </div>
+                    <div style="text-align: center; min-width: 80px; margin-left: 10px; padding-top: 5px;">
+                        <span style="background: {border}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">{d['k']}</span>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+# --- 3. DASHBOARD PEGAWAI ---
+def show_pegawai(user):
+    render_menu_mandiri_button(user)
+    st.divider()
+    st.info("Gunakan tombol di atas untuk melakukan Absensi atau mengunduh laporan Kinerja (Lapkin) Anda.")
+
+# --- 4. DASHBOARD BENDAHARA ---
+def show_bendahara(user):
+    render_menu_mandiri_button(user)
+    st.divider()
+    st.subheader("💰 Panel Bendahara")
+    if st.button("📥 DOWNLOAD REKAP ABSEN KESELURUHAN (EXCEL)", use_container_width=True):
+        st.write("Memproses data...")
+
+# --- 5. DASHBOARD ADMIN ---
+def show_admin(user, database):
+    render_menu_mandiri_button(user)
+    st.divider()
     
-    # Sidebar Info
-    st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/4/46/KPU_Logo.svg", width=100)
-    st.sidebar.write(f"👤 **{u['nama']}**")
-    st.sidebar.caption(f"Role: {u['role']}")
+    tab_mon, tab_down, tab_set = st.tabs(["🔍 MONITORING", "📥 DOWNLOAD CENTER", "🔑 SETTINGS"])
     
-    if st.sidebar.button("🚪 Keluar / Logout", use_container_width=True):
-        # Hapus Session & Hapus Cookies
-        st.session_state.logged_in = False
-        st.session_state.user = None
-        if "saved_user" in cookies:
-            del cookies["saved_user"]
-            del cookies["saved_role"]
-            cookies.save()
-        st.rerun()
+    with tab_mon:
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            tgl = st.date_input("Pilih Tanggal Pantau:", datetime.now())
+        with c2:
+            st.write("") # Spacer
+            st.write(f"📅 {tgl.strftime('%A, %d %b %Y')}")
 
-    st.markdown("---")
+        # Sub-Tabs untuk filter Pegawai
+        st.markdown("---")
+        sub1, sub2, sub3 = st.tabs(["👥 SEMUA", "👔 PNS", "💼 PPPK"])
+        
+        # Ambil data dari core_logic
+        data_log = process_attendance([URL_PNS, URL_PPPK], list(database.keys()), tgl)
 
-    # Jalankan Dashboard sesuai Role
-    if u['role'] == "Admin":
-        show_admin(u, DATABASE_INFO)
-    elif u['role'] == "Bendahara":
-        show_bendahara(u)
-    else:
-        show_pegawai(u)
+        with sub1:
+            render_monitoring_list(list(database.keys()), data_log)
+        with sub2:
+            render_monitoring_list(MASTER_PNS, data_log)
+        with sub3:
+            render_monitoring_list(MASTER_PPPK, data_log)
+
+    with tab_down:
+        st.subheader("Pusat Unduhan Kolektif")
+        st.caption("Lapkin bersifat pribadi dan hanya bisa diunduh oleh pegawai yang bersangkutan di Menu Mandiri.")
+        st.button("📥 Download Rekap Absensi Seluruh Pegawai (Excel)", use_container_width=True)
+
+    with tab_set:
+        st.subheader("Pengaturan Akun")
+        target = st.selectbox("Pilih Nama Pegawai:", list(database.keys()))
+        if st.button(f"Reset Password {target}", use_container_width=True):
+            st.success(f"Password {target} telah direset.")
