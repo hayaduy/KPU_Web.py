@@ -148,4 +148,82 @@ def pop_cetak(nama):
         df = get_clean_df(URL_LAPKIN)
         if df is not None:
             df_f = df[df.iloc[:, 1] == nama]
-            out = BytesIO
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as writer:
+                # Logika header & footer sesuai format resmi
+                pd.DataFrame([["LAPORAN KERJA", nama, bln]]).to_excel(writer, index=False)
+            st.download_button("📥 DOWNLOAD", out.getvalue(), f"LAPKIN_{nama}_{bln}.xlsx")
+
+# --- 6. AUTH & MAIN UI ---
+if not st.session_state.logged_in:
+    _, col, _ = st.columns([1, 1.5, 1])
+    with col:
+        st.markdown("<br><br><h1 style='text-align:center; color:#F59E0B;'>🏛️ KPU HSS LOGIN</h1>", unsafe_allow_html=True)
+        with st.container(border=True):
+            u_in = st.text_input("Username (NIP tanpa spasi)")
+            p_in = st.text_input("Password", type="password")
+            if st.button("MASUK SISTEM", use_container_width=True):
+                df_u = load_auth_db()
+                if not df_u.empty:
+                    match = df_u[df_u['NIP'] == u_in.strip()]
+                    if not match.empty and str(match.iloc[0]['Password']) == p_in:
+                        st.session_state.logged_in = True
+                        st.session_state.user_data = match.iloc[0].to_dict()
+                        st.rerun()
+                    else: st.error("NIP atau Password Salah")
+                else: st.error("Database Login Gagal Dimuat.")
+    st.stop()
+
+# --- 7. DASHBOARD UTAMA ---
+u = st.session_state.user_data
+role = u['Role']
+
+with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/4/46/KPU_Logo.svg", width=80)
+    st.write(f"Halo, **{u['Nama']}**")
+    st.caption(f"Role: {role}")
+    if st.button("🚪 LOGOUT"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+st.title("🏛️ Hub Presence KPU HSS")
+st.markdown('<div class="card-user">', unsafe_allow_html=True)
+st.subheader(f"Dashboard Pegawai: {u['Nama']}")
+c1, c2, c3 = st.columns(3)
+with c1:
+    if st.button("✨ UPDATE HARIAN", use_container_width=True): pop_update(u['Nama'])
+with c2:
+    if st.button("📥 CETAK LAPORAN", use_container_width=True): pop_cetak(u['Nama'])
+with c3:
+    with st.expander("🔑 KEAMANAN"):
+        np = st.text_input("Password Baru", type="password")
+        if st.button("GANTI"):
+            update_db_remote(u['NIP'], np)
+            st.success("Berhasil! Password di Spreadsheet telah diperbarui.")
+st.markdown('</div>', unsafe_allow_html=True)
+
+# PANEL MONITORING (ADMIN/BENDAHARA)
+if role in ["Admin", "Bendahara"]:
+    st.write("---")
+    st.subheader("🖥️ Monitoring Kehadiran (31 Pegawai)")
+    
+    t1, t2, t3 = st.tabs(["🌎 SEMUA", "👥 PNS", "👥 PPPK"])
+    
+    def render_monitor(masters):
+        df_pns = get_clean_df(URL_PNS)
+        df_pppk = get_clean_df(URL_PPPK)
+        all_logs = pd.concat([df_pns, df_pppk]) if df_pns is not None else df_pppk
+        today = datetime.now(wita_tz).strftime('%d/%m/%Y')
+        
+        for i, p in enumerate(masters, 1):
+            status = "ALPA"
+            if all_logs is not None:
+                log = all_logs[(all_logs.iloc[:, 1] == p) & (all_logs.iloc[:, 0].str.contains(today))]
+                if not log.empty: status = "HADIR"
+            
+            cls = "status-hadir" if status == "HADIR" else "status-alpa"
+            st.markdown(f'<div class="employee-card"><div class="emp-name">{i}. {p}</div><div class="{cls}">{status}</div></div>', unsafe_allow_html=True)
+
+    with t1: render_monitor(list(DATABASE_INFO.keys()))
+    with t2: render_monitor(MASTER_PNS)
+    with t3: render_monitor(MASTER_PPPK)
