@@ -12,15 +12,18 @@ from core_logic import (
     URL_PPPK
 )
 
-# Konfigurasi konstanta (Bisa ditaruh di sini atau di database)
+# Konfigurasi konstanta
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
               "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+# URL API LAPKIN sudah diperbarui sesuai input terakhir Abang
 URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbyXtsnv9OQ1qDkF41iCsqWzcQbqy0YKmrdrzzR4bAno19g3RRWjhpxxeKTDW1c05Irz/exec"
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
 
 # --- 1. LOGIKA PENANDATANGAN (KHUSUS UI) ---
 def get_approver_options(user_nama):
+    if user_nama not in DATABASE_INFO:
+        return ["Suwanto, SH., MH."], 0
     info = DATABASE_INFO[user_nama]
     jabatan = info[1]
     atasan_list = ["Suwanto, SH., MH.", "Wawan Setiawan, SH", "Ineke Setiyaningsih, S.Sos", "Farah Agustina Setiawati, SH", "Rusma Ariati, SE"]
@@ -69,17 +72,26 @@ def pop_menu_mandiri(user):
         
         if st.button("🔍 PROSES EXCEL", use_container_width=True):
             with st.spinner("Menyusun Laporan..."):
-                # Manggil mesin dari core_logic
+                # 1. Ambil data dari API GSheet via core_logic
                 data = get_lapkin_data(URL_API_LAPKIN, LIST_BULAN, user['nama'], bln, thn)
+                
+                if not data:
+                    st.warning(f"Data Lapkin untuk {bln} {thn} tidak ditemukan. Excel akan tetap dibuat tanpa rincian kegiatan.")
+                
+                # 2. Buat file Excel
                 excel_data = create_excel_file(DATABASE_INFO, LIST_BULAN, user['nama'], bln, thn, ttd_pilih, data)
                 
-                st.download_button(
-                    label="📥 DOWNLOAD FILE SEKARANG", 
-                    data=excel_data, 
-                    file_name=f"LAPKIN_{user['nama']}_{bln}.xlsx", 
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                    use_container_width=True
-                )
+                if excel_data:
+                    st.success(f"Laporan {bln} {thn} siap diunduh!")
+                    st.download_button(
+                        label="📥 DOWNLOAD FILE SEKARANG", 
+                        data=excel_data, 
+                        file_name=f"LAPKIN_{user['nama']}_{bln}_{thn}.xlsx", 
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                        use_container_width=True
+                    )
+                else:
+                    st.error("Terjadi kesalahan saat membuat file Excel.")
 
 # --- 3. DASHBOARD VIEWS ---
 def show_pegawai(user):
@@ -114,6 +126,7 @@ def show_bendahara(user):
     render_monitoring_list(list(DATABASE_INFO.keys()), data_log)
 
 def render_monitoring_list(list_nama, data_log):
+    # Urutkan nama agar rapi
     for p in sorted(list_nama):
         d = data_log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
         color = "#10B981" if d['k'] == "HADIR" else "#EF4444"
