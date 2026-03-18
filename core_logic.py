@@ -1,42 +1,57 @@
-# core_logic.py
 import pandas as pd
 import requests
 from io import StringIO
-import random
+from datetime import datetime
 
+# URL yang Abang berikan (Format CSV Publik)
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-def get_clean_df(url):
-    try:
-        r = requests.get(f"{url}&cb={random.random()}", timeout=15)
-        return pd.read_csv(StringIO(r.text)).dropna(how='all')
-    except: return None
-
-def clean_logic(name):
-    return str(name).strip().lower().replace(",", "").replace(".", "").replace(" ", "")
-
-def process_attendance(urls, masters, tgl_target):
-    all_dfs = []
-    for u in urls:
-        df_t = get_clean_df(u)
-        if df_t is not None: all_dfs.append(df_t)
-    if not all_dfs: return {}
+def process_attendance(urls, daftar_nama, tgl_pilihan):
+    """
+    Memproses data kehadiran dari Google Sheets (CSV) berdasarkan tanggal pilihan.
+    """
+    # Inisialisasi hasil: Default ALPA untuk semua pegawai di database
+    attendance_results = {nama: {"m": "--:--", "p": "--:--", "k": "ALPA"} for nama in daftar_nama}
     
-    df = pd.concat(all_dfs, ignore_index=True)
-    d_f1, d_f2 = tgl_target.strftime('%d/%m/%Y'), tgl_target.strftime('%Y-%m-%d')
-    log = {}
+    # Format tanggal pilihan (dari st.date_input) menjadi string "DD/MM/YYYY"
+    str_tgl_target = tgl_pilihan.strftime("%d/%m/%Y")
     
-    for _, r in df.iterrows():
-        ts = str(r.iloc[0])
-        if d_f1 in ts or d_f2 in ts:
-            n_raw = clean_logic(r.iloc[1])
-            dt = pd.to_datetime(ts, errors='coerce')
-            if pd.isna(dt): continue
-            matched = next((m for m in masters if clean_logic(m) == n_raw), None)
-            if matched:
-                if matched not in log: 
-                    log[matched] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
-                if dt.hour >= 15: 
-                    log[matched]["p"] = dt.strftime("%H:%M")
-    return log
+    for url in urls:
+        try:
+            # Mengambil data CSV
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                # Membaca string CSV ke DataFrame
+                csv_data = StringIO(response.text)
+                df = pd.read_csv(csv_data)
+
+                if not df.empty:
+                    for _, row in df.iterrows():
+                        # Kolom 0: Timestamp (format: 17/03/2026 16:51:54)
+                        timestamp_full = str(row.iloc[0])
+                        
+                        # Cek apakah baris ini sesuai dengan tanggal yang dipilih Admin
+                        if str_tgl_target in timestamp_full:
+                            nama = row.iloc[1] # Kolom 1: Nama
+                            
+                            # Ekstraksi jam dan menit (HH:mm)
+                            # Mengambil bagian setelah spasi dan memotong detik
+                            try:
+                                jam_menit = timestamp_full.split(" ")[1][:5]
+                            except:
+                                jam_menit = "--:--"
+
+                            if nama in attendance_results:
+                                # Data pertama yang ditemukan pada hari itu = Jam Masuk
+                                if attendance_results[nama]["m"] == "--:--":
+                                    attendance_results[nama]["m"] = jam_menit
+                                    attendance_results[nama]["k"] = "HADIR"
+                                
+                                # Data terakhir yang ditemukan pada hari itu = Jam Pulang
+                                attendance_results[nama]["p"] = jam_menit
+                                
+        except Exception as e:
+            print(f"Gagal memproses URL {url}: {e}")
+            
+    return attendance_results
