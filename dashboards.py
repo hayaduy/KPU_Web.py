@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 from datetime import datetime
 from io import BytesIO
-from database import DATABASE_INFO, MASTER_PNS, MASTER_PPARK
+from database import DATABASE_INFO, MASTER_PNS, MASTER_PPPK
 from core_logic import process_attendance, URL_PNS, URL_PPPK 
 
 # --- 1. KONFIGURASI URL ---
