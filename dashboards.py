@@ -1,36 +1,52 @@
-# dashboards.py
 import streamlit as st
-import requests
-import time
-from datetime import datetime
-from database import DATABASE_INFO
+import pandas as pd
 
-SCRIPT_LAPKIN = "https://script.google.com/macros/s/AKfycbxRY5Tvp21WuX2VUMW43GmT8h_BcUUZkNog4CV5HKpThCEkC0YY61O0BF8m15Veqt6N/exec"
-
-@st.dialog("🚀 UPDATE DATA MANDIRI")
-def pop_update(nama):
-    st.write(f"Pegawai: **{nama}**")
-    tipe = st.radio("Pilih Kegiatan:", ["Absen", "Lapkin"])
-    info = DATABASE_INFO[nama]
-    
-    if tipe == "Absen":
-        if st.button("KIRIM ABSEN SEKARANG", use_container_width=True):
-            st.success("Presensi Terkirim!"); time.sleep(1); st.rerun()
-    else:
-        st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar"])
-        h_kerja = st.text_area("Uraian Hasil Kerja:")
-        if st.button("SIMPAN LAPORAN", use_container_width=True):
-            payload = {"nama": nama, "nip": info[0], "status": st_fix, "hasil": h_kerja}
-            requests.post(SCRIPT_LAPKIN, json=payload)
-            st.success("Tersimpan!"); time.sleep(1); st.rerun()
-
-def view_admin(database, log_data, tgl):
-    st.subheader("📊 Monitoring Pegawai (Admin)")
-    # Logic monitoring di sini...
-    st.info("Fitur Reset Password & Download Full Aktif.")
-
-def view_pegawai(user):
-    st.subheader(f"👋 Halo, {user['nama']}")
+# --- FUNGSI MANDIRI (WAJIB ADA DI SEMUA ROLE) ---
+def menu_mandiri(nama):
+    st.markdown("### 👤 Menu Mandiri")
     c1, c2 = st.columns(2)
-    if c1.button("🚀 ABSEN"): pop_update(user['nama'])
-    if c2.button("📝 LAPKIN"): pop_update(user['nama'])
+    with c1:
+        if st.button("🚀 ABSEN SEKARANG", use_container_width=True):
+            st.info("Membuka Form Absen...") # Hubungkan ke pop_update nanti
+    with c2:
+        if st.button("📝 BUAT LAPKIN", use_container_width=True):
+            st.info("Membuka Form Lapkin...")
+
+# --- 1. DASHBOARD PEGAWAI ---
+def show_pegawai(user):
+    st.title(f"📱 Dashboard Pegawai")
+    st.write(f"Selamat Datang, **{user['nama']}**")
+    menu_mandiri(user['nama'])
+    st.divider()
+    st.button("📊 Download Rekap Absen SAYA")
+    st.button("📄 Download Lapkin SAYA")
+
+# --- 2. DASHBOARD BENDAHARA ---
+def show_bendahara(user):
+    st.title(f"💰 Dashboard Bendahara")
+    st.write(f"Selamat Datang, **{user['nama']}**")
+    menu_mandiri(user['nama'])
+    st.divider()
+    st.subheader("Fitur Khusus Bendahara")
+    st.button("📥 DOWNLOAD REKAP KESELURUHAN PEGAWAI")
+    st.button("📄 Download Lapkin SAYA")
+
+# --- 3. DASHBOARD ADMIN ---
+def show_admin(user, database):
+    st.title(f"🏛️ Dashboard Admin")
+    st.write(f"Selamat Datang, **{user['nama']}**")
+    menu_mandiri(user['nama'])
+    st.divider()
+    
+    t1, t2, t3 = st.tabs(["🔍 MONITORING", "📥 DOWNLOAD", "🔑 SETTINGS"])
+    with t1:
+        st.subheader("Monitoring 31 Pegawai")
+        st.write("Status kehadiran real-time muncul di sini...")
+    with t2:
+        st.button("📥 Download Hasil Lapkin SEMUA Pegawai")
+        st.button("📥 Download Rekap KESELURUHAN")
+    with t3:
+        st.subheader("Reset Password")
+        target = st.selectbox("Pilih Pegawai:", list(database.keys()))
+        if st.button(f"Reset Password {target}"):
+            st.success(f"Password {target} direset!")
