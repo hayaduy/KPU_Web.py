@@ -172,4 +172,31 @@ if not st.session_state.logged_in:
                 st.session_state.logged_in = True
                 st.session_state.user = db[u_nip]
                 st.rerun()
-            # Jika NIP ada di 31 orang tapi belum punya role khusus (Default
+            # Jika NIP ada di 31 orang tapi belum punya role khusus (Default Pegawai)
+            elif any(u_nip.replace(" ", "") in v[0].replace(" ", "") for v in DATABASE_INFO.values()):
+                # Cari nama berdasarkan NIP
+                nama_found = next(k for k, v in DATABASE_INFO.items() if u_nip.replace(" ", "") in v[0].replace(" ", ""))
+                if u_pass == "kpuhss2026":
+                    st.session_state.logged_in = True
+                    st.session_state.user = {"nama": nama_found, "role": "Pegawai", "pass": "kpuhss2026"}
+                    st.rerun()
+            else:
+                st.error("NIP atau Password salah!")
+    st.stop()
+
+# --- 5. APP ROUTING ---
+user = st.session_state.user
+
+with st.sidebar:
+    st.markdown(f"### 👤 {user['nama']}")
+    st.markdown(f"Role: **{user['role']}**")
+    if st.button("🚪 LOGOUT"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+if user['role'] == "Admin":
+    dashboard_admin()
+elif user['role'] == "Bendahara":
+    dashboard_bendahara()
+else:
+    dashboard_pegawai(user)
