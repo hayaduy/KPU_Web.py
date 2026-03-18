@@ -2,170 +2,165 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
+from io import BytesIO
 from database import DATABASE_INFO, MASTER_PNS, MASTER_PPPK
 from core_logic import process_attendance, URL_PNS, URL_PPPK 
 
-# --- 1. KONFIGURASI SEMUA URL ENDPOINT ---
+# --- 1. KONFIGURASI URL ---
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
 URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbzJ_gHm4clqncelQOKDdHR6UK9wiTXgMNSqLMQnBBNVCg4F-Arnch062h6Xaxo3Excd/exec"
 
-# --- 2. LOGIKA PENENTUAN PENANDATANGAN (APPROVAL) ---
-def get_approver(user_nama):
-    """Logika menentukan siapa yang tanda tangan di bawah laporan sesuai hirarki"""
+# --- 2. LOGIKA PENANDATANGAN (BISA DIPILIH) ---
+def get_approver_options(user_nama):
     info = DATABASE_INFO[user_nama]
     jabatan = info[1]
     
-    # Nama Sekretaris & NIP (Otoritas Tertinggi)
-    sekretaris = "Suwanto, SH., MH."
-    nip_sekretaris = DATABASE_INFO[sekretaris][0]
+    atasan_list = [
+        "Suwanto, SH., MH.", 
+        "Wawan Setiawan, SH", 
+        "Ineke Setiyaningsih, S.Sos", 
+        "Farah Agustina Setiawati, SH", 
+        "Rusma Ariati, SE"
+    ]
     
-    # Aturan 1: Jika yang membuat adalah Sekretaris atau Kasubbag, maka TTD Sekretaris
-    if "Sekretaris" in jabatan or "Kepala Sub" in jabatan:
-        return sekretaris, nip_sekretaris, "Sekretaris"
+    # Saran otomatis berdasarkan bagian
+    idx = 0
+    if "Teknis" in jabatan: idx = 1
+    elif "Keuangan" in jabatan or "Logistik" in jabatan: idx = 2
+    elif "Hukum" in jabatan or "SDM" in jabatan: idx = 3
+    elif "Perencanaan" in jabatan or "Data" in jabatan: idx = 4
     
-    # Aturan 2: Jika yang membuat adalah Staf, maka TTD Kasubbag di bagiannya
-    if "Teknis" in jabatan: kasubbag = "Wawan Setiawan, SH"
-    elif "Keuangan" in jabatan or "Logistik" in jabatan: kasubbag = "Ineke Setiyaningsih, S.Sos"
-    elif "Hukum" in jabatan or "SDM" in jabatan: kasubbag = "Farah Agustina Setiawati, SH"
-    elif "Perencanaan" in jabatan or "Data" in jabatan: kasubbag = "Rusma Ariati, SE"
-    else: kasubbag = sekretaris # Fallback
-    
-    return kasubbag, DATABASE_INFO[kasubbag][0], DATABASE_INFO[kasubbag][1]
+    if "Kepala Sub" in jabatan: idx = 0
+    return atasan_list, idx
 
 # --- 3. CSS CUSTOM ---
 def inject_custom_css():
     st.markdown("""
         <style>
-        button[data-baseweb="tab"] { font-size: 14px; font-weight: 600; flex: 1; text-align: center; }
-        button[data-baseweb="tab"] div p { margin: 0 auto; }
-        div[data-baseweb="tab-highlight"] { background-color: #EF4444; }
+        [data-testid="stMetricValue"] { font-size: 24px; }
+        .stButton button { border-radius: 8px; }
         </style>
     """, unsafe_allow_html=True)
 
-# --- 4. POP-UP MENU MANDIRI (ABSEN, LAPKIN, & DOWNLOAD) ---
+# --- 4. POP-UP MENU MANDIRI (DAPAT DIAKSES SEMUA ROLE) ---
 @st.dialog("📋 AKSES MANDIRI & LAPKIN")
 def pop_menu_mandiri(user):
     info = DATABASE_INFO[user['nama']]
     nip, jabatan, status_peg = info[0], info[1], info[4]
     
-    st.write(f"Pegawai: **{user['nama']}**")
-    st.caption(f"{status_peg} | {jabatan}")
-    st.divider()
+    tab_abs, tab_lap, tab_dl = st.tabs(["🚀 ABSEN", "📝 LAPKIN", "📥 DOWNLOAD"])
     
-    # --- SEKSI ABSENSI ---
-    st.subheader("🚀 Presensi Harian")
-    if st.button("KLIK UNTUK ABSEN (HADIR)", use_container_width=True, type="primary"):
-        target_url = URL_API_PNS if status_peg == "PNS" else URL_API_PPPK
-        payload_absen = {"nama": user['nama'], "nip": nip, "jabatan": jabatan, "status": status_peg}
-        
-        with st.spinner("Mengirim data presensi..."):
-            try:
-                res = requests.post(target_url, json=payload_absen, timeout=10)
-                if "Success" in res.text:
-                    st.success(f"✅ Presensi Berhasil!")
-                    st.balloons()
-                else:
-                    st.error(f"Gagal: {res.text}")
-            except Exception as e:
-                st.error(f"Kesalahan Koneksi: {e}")
-
-    st.markdown("---")
-    
-    # --- SEKSI LAPKIN ---
-    st.subheader("📝 Laporan Kinerja (LAPKIN)")
-    status_lapkin = st.selectbox("Status Kehadiran Lapkin:", ["HADIR", "IZIN", "TL", "CUTI"], index=0)
-    uraian = st.text_area("Uraian Kegiatan Hari Ini:", placeholder="Contoh: Mengelola data logistik pemilihan umum...")
-    
-    if st.button("KIRIM LAPORAN KINERJA", use_container_width=True):
-        if uraian.strip():
-            payload_lapkin = {
-                "nama": user['nama'], "nip": nip, "jabatan": jabatan, 
-                "status": status_lapkin, "uraian": uraian
-            }
-            with st.spinner("Mengirim laporan ke Google Sheets..."):
+    with tab_abs:
+        if st.button("KLIK UNTUK ABSEN (HADIR)", use_container_width=True, type="primary"):
+            target_url = URL_API_PNS if status_peg == "PNS" else URL_API_PPPK
+            payload = {"nama": user['nama'], "nip": nip, "jabatan": jabatan, "status": status_peg}
+            with st.spinner("Mengirim..."):
                 try:
-                    res = requests.post(URL_API_LAPKIN, json=payload_lapkin, timeout=10)
-                    if "Success" in res.text:
-                        st.success(f"✅ Laporan Berhasil Dikirim!")
-                        st.balloons()
-                    else:
-                        st.error(f"Gagal mengirim: {res.text}")
-                except Exception as e:
-                    st.error(f"Kesalahan Koneksi: {e}")
-        else:
-            st.warning("Silakan isi uraian kegiatan terlebih dahulu!")
+                    res = requests.post(target_url, json=payload, timeout=10)
+                    st.success("Presensi Berhasil!") if "Success" in res.text else st.error(res.text)
+                except: st.error("Koneksi Gagal")
 
-    st.markdown("---")
+    with tab_lap:
+        st.caption("Input Laporan Harian")
+        stat = st.selectbox("Status:", ["HADIR", "IZIN", "TL", "CUTI"])
+        uraian = st.text_area("Uraian Kegiatan:")
+        if st.button("KIRIM LAPKIN", use_container_width=True):
+            if uraian:
+                payload = {"nama": user['nama'], "nip": nip, "jabatan": jabatan, "status": stat, "uraian": uraian}
+                requests.post(URL_API_LAPKIN, json=payload)
+                st.success("Terkirim!")
+            else: st.warning("Isi uraian!")
 
-    # --- SEKSI UNDUH LAPORAN (PENYEMPURNAAN) ---
-    st.subheader("📥 Unduh Laporan Bulanan")
-    st.caption("Generate dokumen Excel laporan bulanan sesuai periode.")
+    with tab_dl:
+        bln = st.selectbox("Bulan:", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
+        thn = st.selectbox("Tahun:", [2025, 2026], index=1)
+        
+        # FITUR: PILIHAN PENANDATANGAN
+        list_atasan, def_idx = get_approver_options(user['nama'])
+        ttd_pilih = st.selectbox("Pilih Penandatangan:", list_atasan, index=def_idx)
+        
+        if st.button("GENERATE EXCEL", use_container_width=True):
+            st.info(f"Menyiapkan Laporan dengan TTD: {ttd_pilih}")
+            # Logika Excel diletakkan di sini (BytesIO)
+
+# --- 5. TAMPILAN DASHBOARD PER ROLE ---
+
+# --- A. ROLE: PEGAWAI (MINIMALIS) ---
+def show_pegawai(user):
+    inject_custom_css()
+    st.subheader(f"Halo, {user['nama']} 👋")
     
     col1, col2 = st.columns(2)
     with col1:
-        bln_pilih = st.selectbox("Pilih Bulan:", 
-            ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
-             "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
+        if st.button("🚀 ABSEN / HADIR", use_container_width=True, type="primary"):
+            pop_menu_mandiri(user)
     with col2:
-        thn_pilih = st.selectbox("Pilih Tahun:", [2025, 2026], index=1)
+        if st.button("📝 ISI LAPKIN", use_container_width=True):
+            pop_menu_mandiri(user)
+            
+    st.divider()
+    st.caption("📊 Rekap Presensi Anda (Hari Ini)")
+    tgl_now = datetime.now()
+    data_log = process_attendance([URL_PNS, URL_PPPK], [user['nama']], tgl_now)
+    render_monitoring_list([user['nama']], data_log)
 
-    # Menampilkan Pilihan Penandatangan Otomatis
-    ttd_nama, ttd_nip, ttd_jabatan = get_approver(user['nama'])
-    
-    st.info(f"""
-    **Konfirmasi Penandatangan:**
-    * Nama: **{ttd_nama}**
-    * NIP: {ttd_nip}
-    * Jabatan: {ttd_jabatan}
-    """)
-
-    if st.button("PROSES & UNDUH EXCEL", use_container_width=True, type="primary"):
-        with st.spinner("Menarik data dari Google Sheets..."):
-            # Di sini nanti fungsi untuk membuat file Excel dipanggil
-            st.success(f"Dokumen {bln_pilih} {thn_pilih} untuk {user['nama']} siap diunduh.")
-            # st.download_button(...)
-
-# --- 5. TAMPILAN DASHBOARD ---
-def render_monitoring_list(list_nama, data_log):
-    if not list_nama:
-        st.caption("Nama tidak ditemukan...")
-        return
-    for p in list_nama:
-        d = data_log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
-        color = "#10B981" if d['k'] == "HADIR" else "#F59E0B" if d['k'] == "TERLAMBAT" else "#EF4444"
-        st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:8px; margin-bottom:8px; border-left:5px solid {color};">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div><small style="color:#888;">{DATABASE_INFO[p][1]}</small><br><span style="font-weight:600;">{p}</span></div>
-                    <div style="text-align:right; font-family:monospace;"><span style="font-size:12px;">{d['m']} - {d['p']}</span><br><span style="color:{color}; font-size:10px; font-weight:bold;">{d['k']}</span></div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-def show_pegawai(user):
-    st.markdown("### 📱 Menu Pegawai")
-    if st.button("📂 BUKA MENU MANDIRI", use_container_width=True, type="primary"):
-        pop_menu_mandiri(user)
-
+# --- B. ROLE: ADMIN (FULL AKSES) ---
 def show_admin(user, database):
     inject_custom_css()
-    st.markdown("### 🏛️ Menu Administrator")
-    if st.button("📂 BUKA MENU MANDIRI", use_container_width=True, type="primary"):
+    st.subheader("🏛️ Administrator Panel")
+    
+    if st.button("📂 MENU MANDIRI SAYA", use_container_width=True):
         pop_menu_mandiri(user)
-    st.divider()
-    tab_mon, tab_down, tab_set = st.tabs(["🔍 MONITORING", "📥 UNDUH DATA", "🔑 PENGATURAN"])
+        
+    tab_mon, tab_user, tab_sys = st.tabs(["🔍 MONITORING", "👥 KELOLA USER", "⚙️ SISTEM"])
+    
     with tab_mon:
-        c1, c2 = st.columns([1, 1])
-        tgl = c1.date_input("Tanggal Pemantauan:", datetime.now())
-        search = c2.text_input("🔍 Cari Nama Pegawai:")
+        c1, c2 = st.columns(2)
+        tgl = c1.date_input("Pilih Tanggal:", datetime.now())
+        search = c2.text_input("Cari Nama:")
         data_log = process_attendance([URL_PNS, URL_PPPK], list(database.keys()), tgl)
         render_monitoring_list([n for n in list(database.keys()) if search.lower() in n.lower()], data_log)
 
+    with tab_user:
+        st.write("🔑 **Data Login & Password Pegawai**")
+        # Menampilkan tabel password (asumsi password default atau dari db)
+        user_list = []
+        for nama, info in database.items():
+            user_list.append({"Nama": nama, "NIP": info[0], "Role": info[7] if len(info)>7 else "Pegawai", "Password": "kpuhss2026"})
+        
+        df_user = pd.DataFrame(user_list)
+        st.dataframe(df_user, use_container_width=True)
+        
+        if st.button("Reset Semua Password ke Default"):
+            st.warning("Fitur ini akan mereset kredensial sistem.")
+
+# --- C. ROLE: BENDAHARA (SUB-ADMIN / REKAP) ---
 def show_bendahara(user):
     inject_custom_css()
-    st.markdown("### 💰 Menu Bendahara")
-    if st.button("📂 BUKA MENU MANDIRI", use_container_width=True, type="primary"):
+    st.subheader("💰 Menu Bendahara")
+    
+    if st.button("📂 MENU MANDIRI SAYA", use_container_width=True):
         pop_menu_mandiri(user)
+        
     st.divider()
-    st.button("📥 Unduh Rekap Presensi Kantor", use_container_width=True)
+    st.write("📊 **Rekapitulasi Presensi Kantor**")
+    tgl_rekap = st.date_input("Pilih Hari Rekap:", datetime.now())
+    data_log = process_attendance([URL_PNS, URL_PPPK], list(DATABASE_INFO.keys()), tgl_rekap)
+    
+    if st.button("📥 Unduh Rekap CSV"):
+        df_rekap = pd.DataFrame.from_dict(data_log, orient='index')
+        st.download_button("Klik Download", df_rekap.to_csv(), "rekap.csv")
+    
+    render_monitoring_list(list(DATABASE_INFO.keys()), data_log)
+
+# --- 6. HELPER: RENDER LIST ---
+def render_monitoring_list(list_nama, data_log):
+    for p in list_nama:
+        d = data_log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
+        color = "#10B981" if d['k'] == "HADIR" else "#EF4444"
+        st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:5px; border-left:5px solid {color};">
+                <small>{p}</small> <br> <b>{d['m']} - {d['p']}</b> | <span style="color:{color}">{d['k']}</span>
+            </div>
+        """, unsafe_allow_html=True)
