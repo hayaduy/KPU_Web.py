@@ -8,22 +8,21 @@ from database import DATABASE_INFO, MASTER_PNS, MASTER_PPPK
 from core_logic import process_attendance, URL_PNS, URL_PPPK 
 
 # --- 1. KONFIGURASI URL ---
-# PASTIKAN URL_API_LAPKIN DI BAWAH INI ADALAH URL "EXEC" HASIL DEPLOY TERBARU
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
+# URL TERBARU YANG ABANG BERIKAN
 URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbxhhNvz5thj5PjA5W19Te02c2E3zueN-QEfNf9nF5El0rfToXK9A8qjNZVpiqnqLyLD/exec"
 
-# --- 2. FUNGSI AMBIL DATA LAPKIN ---
+# --- 2. FUNGSI AMBIL DATA LAPKIN (PERBAIKAN FILTER) ---
 def get_lapkin_data(nama_user, bulan_nama, tahun):
     try:
         response = requests.get(URL_API_LAPKIN, timeout=15)
         
-        # Cek apakah responnya valid JSON
         if response.status_code == 200:
             try:
                 data_json = response.json()
             except:
-                st.error("API Lapkin memberikan respon bukan JSON. Pastikan Script sudah di-Deploy sebagai 'Anyone'.")
+                st.error("API Lapkin memberikan respon bukan JSON. Pastikan sudah ada fungsi doGet di Google Script dan Deploy sebagai 'Anyone'.")
                 return []
             
             list_bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
@@ -32,16 +31,17 @@ def get_lapkin_data(nama_user, bulan_nama, tahun):
             
             filtered_data = []
             for item in data_json:
-                # Cari kolom nama secara fleksibel
+                # 1. Cek Nama (Case Insensitive & Strip Spasi)
+                # Mencoba mencari kunci 'nama' atau kunci pertama yang mengandung teks nama
                 val_nama = next((str(v).strip().lower() for k, v in item.items() if 'nama' in k.lower()), "")
                 
                 if val_nama == str(nama_user).strip().lower():
-                    # Cari kolom tanggal/timestamp
+                    # 2. Cek Tanggal
                     val_tgl = next((str(v) for k, v in item.items() if 'tanggal' in k.lower() or 'timestamp' in k.lower()), "")
                     
                     dt_obj = None
-                    # Parsing tanggal (Coba berbagai format)
-                    for fmt in ["%d/%m/%Y", "%Y-%m-%d", "%m/%d/%Y"]:
+                    # Parsing tanggal dari format dd/mm/yyyy HH:mm:ss
+                    for fmt in ["%d/%m/%Y", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d"]:
                         try:
                             clean_tgl = val_tgl.split(' ')[0] if ' ' in val_tgl else val_tgl
                             dt_obj = datetime.strptime(clean_tgl, fmt)
@@ -49,11 +49,12 @@ def get_lapkin_data(nama_user, bulan_nama, tahun):
                         except: continue
                     
                     if dt_obj and dt_obj.month == bulan_angka and dt_obj.year == tahun:
-                        # Cari kolom Hasil Kerja / Output
+                        # 3. Ambil Hasil Kerja (Berdasarkan script Abang, kuncinya adalah 'output' atau 'uraian')
+                        # Kita cari kunci yang mengandung kata 'output', 'uraian', atau 'hasil'
                         hasil_kerja = "-"
                         for k, v in item.items():
                             kl = k.lower()
-                            if ('hasil' in kl or 'output' in kl or 'kerja' in kl) and str(v).strip().lower() != val_nama:
+                            if ('uraian' in kl or 'hasil' in kl or 'output' in kl) and str(v).strip().lower() != val_nama:
                                 hasil_kerja = str(v)
                                 break
                         
@@ -64,6 +65,7 @@ def get_lapkin_data(nama_user, bulan_nama, tahun):
                             "output": hasil_kerja
                         })
             
+            # Urutkan berdasarkan tanggal terkecil
             return sorted(filtered_data, key=lambda x: x['tgl'])
     except Exception as e:
         st.error(f"Gagal koneksi ke server: {e}")
@@ -101,7 +103,7 @@ def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
         
         row = 10
         if not data_lapkin:
-            worksheet.merge_range(row, 0, row, 4, f"Data {user_nama} tidak ditemukan. Pastikan sudah isi Lapkin di GSheet.", f_center)
+            worksheet.merge_range(row, 0, row, 4, f"Data {user_nama} tidak ditemukan untuk periode ini.", f_center)
             row += 1
         else:
             for i, d in enumerate(data_lapkin):
@@ -168,7 +170,8 @@ def pop_menu_mandiri(user):
         hasil = st.text_input("Hasil Kerja / Output:") 
         if st.button("KIRIM LAPKIN", use_container_width=True):
             if hasil:
-                payload = {"nama": user['nama'], "nip": nip, "jabatan": jabatan, "status": stat, "output": hasil}
+                # Kunci 'uraian' disesuaikan dengan script doPost Abang
+                payload = {"nama": user['nama'], "nip": nip, "jabatan": jabatan, "status": stat, "uraian": hasil}
                 with st.spinner("Mengirim..."):
                     try:
                         requests.post(URL_API_LAPKIN, json=payload, timeout=10)
@@ -182,11 +185,11 @@ def pop_menu_mandiri(user):
         list_atasan, def_idx = get_approver_options(user['nama'])
         ttd_pilih = st.selectbox("Pilih Penandatangan:", list_atasan, index=def_idx)
         
-        if st.button("🔍 PROSES LAPORAN", use_container_width=True):
-            with st.spinner("Menghubungi GSheet Lapkin..."):
+        if st.button("🔍 PROSES & DOWNLOAD EXCEL", use_container_width=True):
+            with st.spinner("Menarik data dari GSheet..."):
                 excel_data = create_excel_file(user['nama'], bln, thn, ttd_pilih)
                 st.download_button(
-                    label="📥 DOWNLOAD FILE EXCEL",
+                    label="📥 KLIK UNTUK SIMPAN EXCEL",
                     data=excel_data,
                     file_name=f"LAPORAN_{user['nama']}_{bln}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
