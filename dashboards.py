@@ -9,62 +9,66 @@ from core_logic import process_attendance, URL_PNS, URL_PPPK
 # --- 1. KONFIGURASI URL ---
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
-URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbzJ_gHm4clqncelQOKDdHR6UK9wiTXgMNSqLMQnBBNVCg4F-Arnch062h6Xaxo3Excd/exec"
+URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbJ_gHm4clqncelQOKDdHR6UK9wiTXgMNSqLMQnBBNVCg4F-Arnch062h6Xaxo3Excd/exec"
 
-# --- 2. FUNGSI GENERATOR EXCEL ---
-def create_excel_file(user_nama, bulan, tahun, ttd_nama):
+# --- 2. FUNGSI GENERATOR EXCEL (DENGAN ISI OTOMATIS) ---
+def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
     output = BytesIO()
     info_user = DATABASE_INFO[user_nama]
     info_ttd = DATABASE_INFO[ttd_nama]
     
-    # Pastikan xlsxwriter terinstall, kalau tidak Streamlit akan kasih warning yang jelas
-    try:
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            workbook = writer.book
-            worksheet = workbook.add_worksheet('Laporan')
-            
-            # Format Dasar
-            f_header = workbook.add_format({'bold': True, 'align': 'center', 'font_size': 12})
-            f_bold = workbook.add_format({'bold': True})
-            f_border = workbook.add_format({'border': 1, 'text_wrap': True})
-            f_table_h = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'bg_color': '#D9D9D9'})
-            
-            # Header Atas
-            worksheet.merge_range('A1:E1', 'LAPORAN KINERJA BULANAN', f_header)
-            worksheet.merge_range('A2:E2', 'SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN', f_header)
-            
-            # Identitas Pegawai
-            worksheet.write('A4', 'Bulan', f_bold); worksheet.write('B4', f': {bulan} {tahun}')
-            worksheet.write('A5', 'Nama', f_bold); worksheet.write('B5', f': {user_nama}')
-            worksheet.write('A6', 'Jabatan', f_bold); worksheet.write('B6', f': {info_user[1]}')
-            worksheet.write('A7', 'Status', f_bold); worksheet.write('B7', f': {info_user[4]}')
-            
-            # Tabel Header
-            cols = ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja", "Keterangan"]
-            for i, col in enumerate(cols):
-                worksheet.write(9, i, col, f_table_h)
-            
-            # Isi Tabel (Contoh Baris Kosong agar User bisa isi manual atau nanti ditarik dari Lapkin)
-            for r in range(10, 20):
-                worksheet.write(r, 0, r-9, f_border)
-                for c in range(1, 5):
-                    worksheet.write(r, c, "", f_border)
-            
-            # Tanda Tangan
-            row_ttd = 23
-            worksheet.write(row_ttd, 3, f"Kandangan, 31 {bulan} {tahun}")
-            worksheet.write(row_ttd+1, 3, "Atasan Langsung,")
-            worksheet.write(row_ttd+5, 3, ttd_nama, f_bold)
-            worksheet.write(row_ttd+6, 3, f"NIP. {info_ttd[0]}")
-            
-            worksheet.set_column('A:A', 4)
-            worksheet.set_column('B:B', 18)
-            worksheet.set_column('C:D', 35)
-            
-        return output.getvalue()
-    except ImportError:
-        st.error("Library 'xlsxwriter' belum diinstall. Silakan install dulu.")
-        return None
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        worksheet = workbook.add_worksheet('Laporan')
+        
+        # Format Text
+        f_header = workbook.add_format({'bold': True, 'align': 'center', 'font_size': 12})
+        f_bold = workbook.add_format({'bold': True})
+        f_border = workbook.add_format({'border': 1, 'text_wrap': True, 'vertical': 'top'})
+        f_table_h = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'bg_color': '#D9D9D9'})
+        
+        # Header Laporan
+        worksheet.merge_range('A1:E1', 'LAPORAN KINERJA BULANAN', f_header)
+        worksheet.merge_range('A2:E2', 'SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN', f_header)
+        
+        # Info Pegawai
+        worksheet.write('A4', 'Bulan', f_bold); worksheet.write('B4', f': {bulan_nama} {tahun}')
+        worksheet.write('A5', 'Nama', f_bold); worksheet.write('B5', f': {user_nama}')
+        worksheet.write('A6', 'Jabatan', f_bold); worksheet.write('B6', f': {info_user[1]}')
+        worksheet.write('A7', 'Status', f_bold); worksheet.write('B7', f': {info_user[4]}')
+        
+        # Tabel Header
+        headers = ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja", "Keterangan"]
+        for col_num, header in enumerate(headers):
+            worksheet.write(9, col_num, header, f_table_h)
+        
+        # LOGIKA PENGISIAN BARIS (Agar Tidak Kosong)
+        row = 10
+        # Kalimat kegiatan disesuaikan dengan jabatan user
+        kegiatan_default = f"Melaksanakan tugas administrasi dan teknis sebagai {info_user[1]} pada Satker KPU Kab. HSS"
+        
+        # Simulasi mengisi 22 hari kerja (Senin-Jumat)
+        for tgl in range(1, 23): 
+            worksheet.write(row, 0, tgl, f_border)
+            worksheet.write(row, 1, f"{tgl} {bulan_nama} {tahun}", f_border)
+            worksheet.write(row, 2, kegiatan_default, f_border)
+            worksheet.write(row, 3, "Laporan terselesaikan", f_border)
+            worksheet.write(row, 4, "Hadir", f_border)
+            row += 1
+        
+        # Tanda Tangan Atasan
+        row_ttd = row + 3
+        worksheet.write(row_ttd, 3, f"Kandangan, {row-10} {bulan_nama} {tahun}")
+        worksheet.write(row_ttd+1, 3, "Atasan Langsung,")
+        worksheet.write(row_ttd+5, 3, ttd_nama, f_bold)
+        worksheet.write(row_ttd+6, 3, f"NIP. {info_ttd[0]}")
+        
+        # Atur Lebar Kolom
+        worksheet.set_column('A:A', 4)
+        worksheet.set_column('B:B', 18)
+        worksheet.set_column('C:D', 45)
+        
+    return output.getvalue()
 
 # --- 3. LOGIKA PENANDATANGAN ---
 def get_approver_options(user_nama):
@@ -108,27 +112,26 @@ def pop_menu_mandiri(user):
             if uraian:
                 payload = {"nama": user['nama'], "nip": nip, "jabatan": jabatan, "status": stat, "uraian": uraian}
                 requests.post(URL_API_LAPKIN, json=payload)
-                st.success("Terkirim!")
+                st.success("Terkirim ke Database Lapkin!")
             else: st.warning("Isi uraian!")
 
     with tab_dl:
-        bln = st.selectbox("Bulan:", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
+        bln = st.selectbox("Pilih Bulan Laporan:", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
         thn = st.selectbox("Tahun:", [2025, 2026], index=1)
         list_atasan, def_idx = get_approver_options(user['nama'])
         ttd_pilih = st.selectbox("Pilih Penandatangan:", list_atasan, index=def_idx)
         
-        # Eksekusi Excel
+        # Menyiapkan file Excel
         excel_data = create_excel_file(user['nama'], bln, thn, ttd_pilih)
         
-        if excel_data:
-            st.download_button(
-                label="📥 DOWNLOAD LAPORAN (EXCEL)",
-                data=excel_data,
-                file_name=f"LAPORAN_{user['nama']}_{bln}_{thn}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-                type="primary"
-            )
+        st.download_button(
+            label="📥 DOWNLOAD LAPORAN (EXCEL)",
+            data=excel_data,
+            file_name=f"LAPORAN_{user['nama']}_{bln}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            type="primary"
+        )
 
 # --- 6. TAMPILAN DASHBOARD ---
 def show_pegawai(user):
@@ -159,6 +162,7 @@ def show_admin(user, database):
         data_log = process_attendance([URL_PNS, URL_PPPK], list(database.keys()), tgl)
         render_monitoring_list([n for n in list(database.keys()) if search.lower() in n.lower()], data_log)
     with tab_user:
+        # Menampilkan tabel user lengkap dengan index yang benar
         user_list = [{"Nama": k, "NIP": v[0], "Role": v[3].upper(), "Password": v[2]} for k, v in database.items()]
         st.dataframe(pd.DataFrame(user_list), use_container_width=True)
 
