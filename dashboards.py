@@ -8,16 +8,23 @@ from database import DATABASE_INFO, MASTER_PNS, MASTER_PPPK
 from core_logic import process_attendance, URL_PNS, URL_PPPK 
 
 # --- 1. KONFIGURASI URL ---
+# PASTIKAN URL_API_LAPKIN DI BAWAH INI ADALAH URL "EXEC" HASIL DEPLOY TERBARU
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
 URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbyXtsnv9OQ1qDkF41iCsqWzcQbqy0YKmrdrzzR4bAno19g3RRWjhpxxeKTDW1c05Irz/exec"
 
-# --- 2. FUNGSI AMBIL DATA LAPKIN (SUPER FLEXIBLE) ---
+# --- 2. FUNGSI AMBIL DATA LAPKIN ---
 def get_lapkin_data(nama_user, bulan_nama, tahun):
     try:
         response = requests.get(URL_API_LAPKIN, timeout=15)
+        
+        # Cek apakah responnya valid JSON
         if response.status_code == 200:
-            data_json = response.json()
+            try:
+                data_json = response.json()
+            except:
+                st.error("API Lapkin memberikan respon bukan JSON. Pastikan Script sudah di-Deploy sebagai 'Anyone'.")
+                return []
             
             list_bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
                           "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
@@ -25,40 +32,30 @@ def get_lapkin_data(nama_user, bulan_nama, tahun):
             
             filtered_data = []
             for item in data_json:
-                # Normalisasi Nama & cari kunci 'nama' secara fleksibel
-                val_nama = ""
-                for k in item.keys():
-                    if 'nama' in k.lower():
-                        val_nama = str(item[k]).strip().lower()
-                        break
+                # Cari kolom nama secara fleksibel
+                val_nama = next((str(v).strip().lower() for k, v in item.items() if 'nama' in k.lower()), "")
                 
                 if val_nama == str(nama_user).strip().lower():
-                    # Cari kunci Tanggal / Timestamp
-                    val_tgl = ""
-                    for k in item.keys():
-                        if 'tanggal' in k.lower() or 'timestamp' in k.lower():
-                            val_tgl = str(item[k])
-                            break
+                    # Cari kolom tanggal/timestamp
+                    val_tgl = next((str(v) for k, v in item.items() if 'tanggal' in k.lower() or 'timestamp' in k.lower()), "")
                     
                     dt_obj = None
-                    # Coba parsing tanggal
+                    # Parsing tanggal (Coba berbagai format)
                     for fmt in ["%d/%m/%Y", "%Y-%m-%d", "%m/%d/%Y"]:
                         try:
-                            # Ambil bagian tanggal saja (sebelum spasi jam)
                             clean_tgl = val_tgl.split(' ')[0] if ' ' in val_tgl else val_tgl
                             dt_obj = datetime.strptime(clean_tgl, fmt)
                             break
                         except: continue
                     
                     if dt_obj and dt_obj.month == bulan_angka and dt_obj.year == tahun:
-                        # CARI KOLOM HASIL KERJA (Apapun nama kuncinya yang mengandung 'hasil' atau 'output')
+                        # Cari kolom Hasil Kerja / Output
                         hasil_kerja = "-"
-                        for k in item.keys():
+                        for k, v in item.items():
                             kl = k.lower()
-                            if 'hasil' in kl or 'output' in kl or 'kerja' in kl:
-                                if item[k] and item[k] != val_nama: # Pastikan bukan kolom nama
-                                    hasil_kerja = str(item[k])
-                                    break
+                            if ('hasil' in kl or 'output' in kl or 'kerja' in kl) and str(v).strip().lower() != val_nama:
+                                hasil_kerja = str(v)
+                                break
                         
                         filtered_data.append({
                             "tgl": dt_obj.day,
@@ -69,7 +66,7 @@ def get_lapkin_data(nama_user, bulan_nama, tahun):
             
             return sorted(filtered_data, key=lambda x: x['tgl'])
     except Exception as e:
-        st.error(f"Sistem gagal membaca data: {e}")
+        st.error(f"Gagal koneksi ke server: {e}")
         return []
     return []
 
@@ -104,7 +101,7 @@ def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
         
         row = 10
         if not data_lapkin:
-            worksheet.merge_range(row, 0, row, 4, f"Data {user_nama} tidak ditemukan (Cek input Lapkin)", f_center)
+            worksheet.merge_range(row, 0, row, 4, f"Data {user_nama} tidak ditemukan. Pastikan sudah isi Lapkin di GSheet.", f_center)
             row += 1
         else:
             for i, d in enumerate(data_lapkin):
@@ -186,7 +183,7 @@ def pop_menu_mandiri(user):
         ttd_pilih = st.selectbox("Pilih Penandatangan:", list_atasan, index=def_idx)
         
         if st.button("🔍 PROSES LAPORAN", use_container_width=True):
-            with st.spinner("Menyambungkan ke GSheet..."):
+            with st.spinner("Menghubungi GSheet Lapkin..."):
                 excel_data = create_excel_file(user['nama'], bln, thn, ttd_pilih)
                 st.download_button(
                     label="📥 DOWNLOAD FILE EXCEL",
@@ -197,7 +194,7 @@ def pop_menu_mandiri(user):
                     type="primary"
                 )
 
-# --- 7. DASHBOARD PER ROLE ---
+# --- 7. DASHBOARD LOGIC ---
 def show_pegawai(user):
     inject_custom_css()
     st.subheader(f"Halo, {user['nama']} 👋")
