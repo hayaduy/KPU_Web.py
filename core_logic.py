@@ -16,7 +16,8 @@ def clean_name_for_match(name):
     # 1. Hapus gelar setelah koma (contoh: , SH., MH.)
     n = re.sub(r'\,.*', '', n) 
     # 2. Hapus gelar depan dan belakang yang umum
-    for g dalam ['h.', 'hj.', 'sh', 'mh', 'se', 's.sos', 'st', 'mm', 'spd', 's.kom', 's.ap']:
+    # PERBAIKAN: Kata 'dalam' diganti menjadi 'in'
+    for g in ['h.', 'hj.', 'sh', 'mh', 'se', 's.sos', 'st', 'mm', 'spd', 's.kom', 's.ap']:
         n = n.replace(g, "")
     # 3. Hapus spasi dan titik sisa
     return "".join(n.split()).replace(".", "")
@@ -50,7 +51,6 @@ def process_attendance(urls, daftar_nama, tgl_pilihan):
 # --- 2. LOGIKA AMBIL DATA LAPKIN ---
 def get_lapkin_data(URL_API_LAPKIN, LIST_BULAN, nama_user, bulan_nama, tahun):
     try:
-        # Tambahkan timestamp agar data tidak kena cache browser
         response = requests.get(f"{URL_API_LAPKIN}?v={datetime.now().timestamp()}", timeout=15)
         if response.status_code == 200:
             data_json = response.json()
@@ -86,7 +86,6 @@ def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, t
     if user_nama not in DATABASE_INFO: return None
         
     info = DATABASE_INFO[user_nama]
-    # info[0]=NIP, [1]=Jabatan, [2]=Unit, [3]=Subbag, [4]=Status, [5]=Pass, [6]=Role
     
     atasan_nama = ttd_pilih
     if atasan_nama == "Suwanto, SH., MH.": 
@@ -95,7 +94,6 @@ def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, t
         info_atasan = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])
         j_raw = info_atasan[1]
         j_atasan = j_raw
-        # Mapping Jabatan Kasubbag agar lebih rapi di Excel
         if any(x in j_raw for x in ["Kasubbag", "TP-Hupmas", "Teknis"]):
             if "TP-Hupmas" in j_raw or "Teknis" in j_raw: j_atasan = "Kepala Sub Bagian Teknis Penyelenggaraan Pemilu,\nPartisipasi dan Hubungan Masyarakat"
             elif "Keuangan" in j_raw: j_atasan = "Kepala Sub Bagian Keuangan,\nUmum dan Logistik"
@@ -109,22 +107,19 @@ def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, t
         workbook = writer.book
         worksheet = workbook.add_worksheet('Laporan')
         
-        # Formats
         f_h = workbook.add_format({'bold': True, 'align': 'center', 'font_size': 12})
         f_b = workbook.add_format({'bold': True})
         f_border = workbook.add_format({'border': 1, 'text_wrap': True, 'valign': 'top'})
         f_center = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'top'})
         f_table_h = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'bg_color': '#D9D9D9'})
         
-        # Header Dokumen
         worksheet.merge_range('A1:E1', 'LAPORAN BULANAN', f_h)
         worksheet.merge_range('A2:E2', 'SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN', f_h)
         
-        # Profil Pegawai
         worksheet.write('A4', 'Bulan', f_b); worksheet.write('B4', f': {bulan_nama}')
         worksheet.write('A5', 'Nama', f_b); worksheet.write('B5', f': {user_nama}')
         
-        # PERBAIKAN: Gunakan info[1], [2], dan [3] untuk Jabatan, Unit, Subbag
+        # Penulisan profil dengan indeks info yang benar
         worksheet.write('A6', 'Jabatan', f_b);    worksheet.write('B6', f': {info[1]}')
         worksheet.write('A7', 'Unit Kerja', f_b); worksheet.write('B7', f': {info[2]}')
         worksheet.write('A8', 'Sub Bagian', f_b); worksheet.write('B8', f': {info[3]}')
@@ -141,22 +136,21 @@ def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, t
             for i, d in enumerate(data_lapkin):
                 worksheet.write(row, 0, i + 1, f_center)
                 worksheet.write(row, 1, d['hari_tgl'], f_center)
-                worksheet.write(row, 2, "", f_border) # Uraian (Kosongkan/Isi manual jika perlu)
-                worksheet.write(row, 3, d['hasil'], f_border) # Output dari Lapkin
+                worksheet.write(row, 2, "", f_border)
+                worksheet.write(row, 3, d['hasil'], f_border)
                 worksheet.write(row, 4, "Hadir", f_center)
                 row += 1
             
-        # Tanda Tangan
         row_f = row + 2
         worksheet.write(row_f, 3, f"Kandangan, {tgl_ttd}")
         worksheet.write(row_f+1, 3, "Atasan Langsung,")
         worksheet.write(row_f+4, 3, j_atasan, workbook.add_format({'text_wrap': True}))
         worksheet.write(row_f+8, 3, atasan_nama, f_b)
         
-        nip_ttd = DATABASE_INFO.get(atasan_nama, ["-"])[0]
-        worksheet.write(row_f+9, 3, f"NIP. {nip_ttd}")
+        # Ambil NIP atasan
+        info_atasan_final = DATABASE_INFO.get(atasan_nama, ["-"])
+        worksheet.write(row_f+9, 3, f"NIP. {info_atasan_final[0]}")
         
-        # Set Lebar Kolom
         worksheet.set_column('A:A', 4)
         worksheet.set_column('B:B', 18)
         worksheet.set_column('C:D', 40)
