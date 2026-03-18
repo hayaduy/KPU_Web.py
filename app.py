@@ -4,15 +4,13 @@ from dashboards import show_admin, show_bendahara, show_pegawai
 from streamlit_cookies_manager import EncryptedCookieManager
 import os
 
-# --- KONFIGURASI COOKIES ---
-# Ganti 'secret_password_anda' dengan kata kunci bebas untuk enkripsi
+# --- 1. KONFIGURASI COOKIES ---
 cookies = EncryptedCookieManager(password="kpu_hss_secret_key_2026")
 if not cookies.ready():
     st.stop()
 
-# --- INISIALISASI SESSION STATE ---
+# --- 2. INISIALISASI SESSION STATE ---
 if 'logged_in' not in st.session_state:
-    # Cek apakah ada data login di cookies browser
     saved_user = cookies.get("saved_user")
     saved_role = cookies.get("saved_role")
     
@@ -23,7 +21,7 @@ if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
         st.session_state.user = None
 
-# --- LOGIKA LOGIN ---
+# --- 3. LOGIKA LOGIN ---
 if not st.session_state.logged_in:
     st.title("🏛️ LOGIN KPU HSS")
     st.markdown("---")
@@ -33,29 +31,39 @@ if not st.session_state.logged_in:
     remember_me = st.checkbox("Simpan Login (7 Hari)")
     
     if st.button("Masuk", use_container_width=True):
-        # Pembersihan spasi NIP agar akurat
+        # Bersihkan input NIP dari spasi
         clean_nip = nip.replace(" ", "")
+        
+        # Cari user berdasarkan NIP (NIP ada di indeks 0)
         match = next((k for k, v in DATABASE_INFO.items() if clean_nip in v[0].replace(" ", "")), None)
         
-        if match and pwd == "kpuhss2026":
-            role = DATABASE_INFO[match][7] if len(DATABASE_INFO[match]) > 7 else "Pegawai"
+        if match:
+            user_data = DATABASE_INFO[match]
+            db_pwd = user_data[2]  # Password di indeks 2
             
-            # Set Session State
-            st.session_state.logged_in = True
-            st.session_state.user = {"nama": match, "role": role}
-            
-            # Jika checkbox dicentang, simpan ke Cookies Browser
-            if remember_me:
-                cookies["saved_user"] = match
-                cookies["saved_role"] = role
-                cookies.save()
-            
-            st.rerun()
+            if pwd == db_pwd:
+                # Ambil ROLE dari indeks 3 (admin/bendahara/pegawai)
+                # Gunakan .title() agar 'admin' jadi 'Admin' untuk sinkronisasi router
+                role = user_data[3].strip().title() 
+                
+                # Set Session State
+                st.session_state.logged_in = True
+                st.session_state.user = {"nama": match, "role": role}
+                
+                # Simpan ke Cookies Browser jika dicentang
+                if remember_me:
+                    cookies["saved_user"] = match
+                    cookies["saved_role"] = role
+                    cookies.save()
+                
+                st.rerun()
+            else:
+                st.error("⚠️ Password salah!")
         else:
-            st.error("⚠️ NIP atau Password salah!")
+            st.error("⚠️ NIP tidak terdaftar!")
 
 else:
-    # --- ROUTER DASHBOARD ---
+    # --- 4. ROUTER DASHBOARD ---
     u = st.session_state.user
     
     # Sidebar Info
@@ -64,7 +72,6 @@ else:
     st.sidebar.caption(f"Role: {u['role']}")
     
     if st.sidebar.button("🚪 Keluar / Logout", use_container_width=True):
-        # Hapus Session & Hapus Cookies
         st.session_state.logged_in = False
         st.session_state.user = None
         if "saved_user" in cookies:
