@@ -1,156 +1,126 @@
+import streamlit as st
 import pandas as pd
-import requests
-from io import StringIO, BytesIO
 from datetime import datetime
-import calendar
-import re
+from database import DATABASE_INFO
+# Import fungsi dari core_logic.py milik Abang
+from core_logic import (
+    process_attendance, 
+    get_lapkin_data, 
+    create_excel_file, 
+    URL_PNS, 
+    URL_PPPK
+)
 
-# --- KONFIGURASI URL ---
-URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
-URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
+LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+              "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbyXtsnv9OQ1qDkF41iCsqWzcQbqy0YKmrdrzzR4bAno19g3RRWjhpxxeKTDW1c05Irz/exec"
 
-def clean_name_for_match(name):
-    """Menghapus gelar dan karakter khusus agar pencarian akurat"""
-    if not name: return ""
-    # Hapus gelar umum (S.Sos, SH, MH, SE, dsb) dan titik koma
-    n = str(name).lower()
-    n = re.sub(r'\,.*', '', n) # Hapus apapun setelah koma (gelar)
-    n = re.sub(r'\b(h|sh|mh|se|s\.sos|st|mm|spd)\b', '', n) # Hapus gelar spesifik
-    return "".join(n.split()).replace(".", "")
-
-# --- 1. LOGIKA ABSENSI ---
-def process_attendance(urls, daftar_nama, tgl_pilihan):
-    attendance_results = {nama: {"m": "--:--", "p": "--:--", "k": "ALPA"} for nama in daftar_nama}
-    str_tgl_target = tgl_pilihan.strftime("%d/%m/%Y")
+def get_approver_options(user_nama):
+    """Menentukan daftar atasan dan default pilihan berdasarkan subbag"""
+    info = DATABASE_INFO.get(user_nama, ["", ""])
+    atasan_list = ["Suwanto, SH., MH.", "Wawan Setiawan, SH", "Ineke Setiyaningsih, S.Sos", "Farah Agustina Setiawati, SH", "Rusma Ariati, SE"]
+    idx = 0
+    subbag = str(info[3]).lower() if len(info) > 3 else ""
     
-    for url in urls:
-        try:
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                df = pd.read_csv(StringIO(response.text))
-                if not df.empty:
-                    for _, row in df.iterrows():
-                        ts = str(row.iloc[0])
-                        if str_tgl_target in ts:
-                            nama_sheet = row.iloc[1]
-                            # Cocokkan nama dengan versi bersih
-                            for nama_db in daftar_nama:
-                                if clean_name_for_match(nama_sheet) == clean_name_for_match(nama_db):
-                                    try: jam = ts.split(" ")[1][:5]
-                                    except: jam = "--:--"
-                                    if attendance_results[nama_db]["m"] == "--:--":
-                                        attendance_results[nama_db]["m"] = jam
-                                        attendance_results[nama_db]["k"] = "HADIR"
-                                    attendance_results[nama_db]["p"] = jam
-        except: continue
-    return attendance_results
+    if "teknis" in subbag or "hupmas" in subbag: idx = 1
+    elif "keuangan" in subbag or "umum" in subbag: idx = 2
+    elif "hukum" in subbag or "sdm" in subbag: idx = 3
+    elif "perencanaan" in subbag or "data" in subbag: idx = 4
+    return atasan_list, idx
 
-# --- 2. LOGIKA AMBIL DATA LAPKIN ---
-def get_lapkin_data(URL_API_LAPKIN, LIST_BULAN, nama_user, bulan_nama, tahun):
-    try:
-        response = requests.get(f"{URL_API_LAPKIN}?v={datetime.now().timestamp()}", timeout=15)
-        if response.status_code == 200:
-            data_json = response.json()
-            bulan_angka = LIST_BULAN.index(bulan_nama) + 1
-            filtered_data = []
-            target_clean = clean_name_for_match(nama_user)
-
-            for item in data_json:
-                val_nama = clean_name_for_match(item.get('nama', ''))
-                if val_nama == target_clean:
-                    val_tgl = str(item.get('tanggal', ''))
-                    dt_obj = None
-                    # Coba parsing tanggal
-                    for fmt in ["%d/%m/%Y", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d"]:
-                        try:
-                            clean_tgl = val_tgl.split(' ')[0]
-                            dt_obj = datetime.strptime(clean_tgl, fmt)
-                            break
-                        except: continue
-                    
-                    if dt_obj and dt_obj.month == bulan_angka and dt_obj.year == tahun:
-                        filtered_data.append({
-                            "tgl": dt_obj.day,
-                            "hari_tgl": dt_obj.strftime("%d/%m/%Y"),
-                            "hasil": item.get('uraian', '-')
-                        })
-            return sorted(filtered_data, key=lambda x: x['tgl'])
-    except: return []
-    return []
-
-# --- 3. LOGIKA GENERATOR EXCEL ---
-def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, ttd_pilih, data_lapkin):
-    output = BytesIO()
-    if user_nama not in DATABASE_INFO: return None
-        
-    info = DATABASE_INFO[user_nama]
-    # info[0]=NIP, [1]=Jabatan, [2]=Unit, [3]=Subbag, [4]=Status, [5]=Pass, [6]=Role
+@st.dialog("📋 MENU MANDIRI & LAPKIN")
+def pop_menu_mandiri(user):
+    info = DATABASE_INFO[user['nama']]
+    tab_abs, tab_lap, tab_dl = st.tabs(["🚀 ABSEN", "📝 LAPKIN", "📥 DOWNLOAD"])
     
-    atasan_nama = ttd_pilih
-    # Logika Jabatan Atasan
-    if atasan_nama == "Suwanto, SH., MH.": 
-        j_atasan = "Sekretaris KPU Kab. Hulu Sungai Selatan"
-    else:
-        info_atasan = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])
-        j_raw = info_atasan[1]
-        j_atasan = j_raw
-        if any(x in j_raw for x in ["Kasubbag", "TP-Hupmas", "Teknis"]):
-            if "TP-Hupmas" in j_raw or "Teknis" in j_raw: j_atasan = "Kepala Sub Bagian Teknis Penyelenggaraan Pemilu,\nPartisipasi dan Hubungan Masyarakat"
-            elif "Keuangan" in j_raw: j_atasan = "Kepala Sub Bagian Keuangan,\nUmum dan Logistik"
-            elif "Hukum" in j_raw: j_atasan = "Kepala Sub Bagian Hukum dan\nSumber Daya Manusia"
-            elif "Perencanaan" in j_raw: j_atasan = "Kepala Sub Bagian Perencanaan,\nData dan Informasi"
+    with tab_abs:
+        st.info("Fitur absensi otomatis sedang sinkron dengan Google Sheets.")
+        if st.button("KLIK HADIR (SIMULASI)", use_container_width=True):
+            st.success("Data kehadiran akan terbaca pada proses sinkronisasi berikutnya.")
 
-    hr_t = calendar.monthrange(tahun, LIST_BULAN.index(bulan_nama)+1)[1]
-    tgl_ttd = f"{hr_t} {bulan_nama} {tahun}"
+    with tab_lap:
+        stat = st.selectbox("Status Kehadiran:", ["HADIR", "IZIN", "TL", "CUTI"])
+        hasil = st.text_area("Uraian Hasil Kerja Hari Ini:", placeholder="Contoh: Menyusun draf laporan keuangan...") 
+        if st.button("KIRIM DATA LAPKIN", use_container_width=True, type="primary"):
+            if hasil:
+                try:
+                    import requests
+                    requests.post(URL_API_LAPKIN, json={"nama": user['nama'], "uraian": hasil, "status": stat})
+                    st.success("Laporan berhasil dikirim ke database!")
+                except:
+                    st.error("Gagal mengirim data. Cek koneksi internet.")
+            else: st.warning("Uraian kegiatan tidak boleh kosong, Bang!")
 
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        workbook = writer.book
-        worksheet = workbook.add_worksheet('Laporan')
+    with tab_dl:
+        bln = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now().month-1)
+        thn = st.selectbox("Pilih Tahun:", [2025, 2026], index=1)
+        list_atasan, def_idx = get_approver_options(user['nama'])
+        ttd = st.selectbox("Penandatangan (Atasan):", list_atasan, index=def_idx)
         
-        # Formats
-        f_h = workbook.add_format({'bold': True, 'align': 'center', 'font_size': 12})
-        f_b = workbook.add_format({'bold': True})
-        f_border = workbook.add_format({'border': 1, 'text_wrap': True, 'valign': 'top'})
-        f_center = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'top'})
-        f_table_h = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'bg_color': '#D9D9D9'})
-        
-        # Header
-        worksheet.merge_range('A1:E1', 'LAPORAN BULANAN', f_h)
-        worksheet.merge_range('A2:E2', 'SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN', f_h)
-        
-        worksheet.write('A4', 'Bulan', f_b); worksheet.write('B4', f': {bulan_nama}')
-        worksheet.write('A5', 'Nama', f_b); worksheet.write('B5', f': {user_nama}')
-        # INDEX DIPERBAIKI DISINI AGAR TIDAK MUNCUL PASSWORD
-        worksheet.write('A6', 'Jabatan', f_b);    worksheet.write('B6', f': {info[1]}')
-        worksheet.write('A7', 'Unit Kerja', f_b); worksheet.write('B7', f': {info[2]}')
-        worksheet.write('A8', 'Sub Bagian', f_b); worksheet.write('B8', f': {info[3]}')
-        worksheet.write('A10', 'Hasil Kinerja', f_b); worksheet.write('B10', ':')
-        
-        headers = ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja / Output", "Keterangan"]
-        for i, h in enumerate(headers): worksheet.write(10, i, h, f_table_h)
-        
-        row = 11
-        if not data_lapkin:
-            worksheet.merge_range(row, 0, row, 4, "Data Tidak Ditemukan", f_center)
-            row += 1
-        else:
-            for i, d in enumerate(data_lapkin):
-                worksheet.write(row, 0, i + 1, f_center)
-                worksheet.write(row, 1, d['hari_tgl'], f_center)
-                worksheet.write(row, 2, "", f_border)
-                worksheet.write(row, 3, d['hasil'], f_border)
-                worksheet.write(row, 4, "Hadir", f_center)
-                row += 1
-            
-        row_f = row + 2
-        worksheet.write(row_f, 3, f"Kandangan, {tgl_ttd}")
-        worksheet.write(row_f+1, 3, "Atasan Langsung,")
-        worksheet.write(row_f+4, 3, j_atasan, workbook.add_format({'text_wrap': True}))
-        worksheet.write(row_f+8, 3, atasan_nama, f_b)
-        
-        nip_ttd = DATABASE_INFO.get(atasan_nama, ["-"])[0]
-        worksheet.write(row_f+9, 3, f"NIP. {nip_ttd}")
-        
-        worksheet.set_column('A:A', 4); worksheet.set_column('B:B', 18); worksheet.set_column('C:D', 40)
+        if st.button("🔍 PROSES DATA EXCEL", use_container_width=True):
+            with st.spinner("Sedang menyusun laporan..."):
+                # Memanggil fungsi get_lapkin_data dari core_logic
+                data = get_lapkin_data(URL_API_LAPKIN, LIST_BULAN, user['nama'], bln, thn)
+                # Memanggil fungsi create_excel_file dari core_logic
+                excel_data = create_excel_file(DATABASE_INFO, LIST_BULAN, user['nama'], bln, thn, ttd, data)
+                st.session_state['ready_file'] = excel_data
+                st.success("Laporan siap diunduh!")
 
-    return output.getvalue()
+        if 'ready_file' in st.session_state and st.session_state['ready_file']:
+            st.download_button(
+                label="📥 DOWNLOAD SEKARANG",
+                data=st.session_state['ready_file'],
+                file_name=f"LAPKIN_{user['nama']}_{bln}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+# --- FUNGSI TAMPILAN DASHBOARD ---
+
+def show_pegawai(user):
+    st.subheader(f"Halo, {user['nama']} 👋")
+    st.caption(f"Jabatan: {DATABASE_INFO[user['nama']][1]}")
+    
+    if st.button("📂 BUKA MENU MANDIRI (ABSEN/LAPKIN)", use_container_width=True, type="primary"):
+        pop_menu_mandiri(user)
+    
+    st.divider()
+    st.subheader("📊 Monitoring Kehadiran Saya")
+    data_log = process_attendance([URL_PNS, URL_PPPK], [user['nama']], datetime.now())
+    render_monitoring_list([user['nama']], data_log)
+
+def show_admin(user, database):
+    st.subheader("🏛️ Panel Admin KPU")
+    if st.button("📂 MENU MANDIRI SAYA"): pop_menu_mandiri(user)
+    
+    t1, t2 = st.tabs(["🔍 MONITORING HARIAN", "👥 DAFTAR PEGAWAI"])
+    with t1:
+        tgl = st.date_input("Pilih Tanggal Pantau:", datetime.now())
+        data_log = process_attendance([URL_PNS, URL_PPPK], list(database.keys()), tgl)
+        render_monitoring_list(list(database.keys()), data_log)
+    with t2:
+        df_user = pd.DataFrame([{"Nama": k, "NIP": v[0], "Jabatan": v[1], "Subbag": v[3]} for k, v in database.items()])
+        st.dataframe(df_user, use_container_width=True)
+
+def show_bendahara(user):
+    st.subheader("💰 Panel Bendahara")
+    if st.button("📂 MENU MANDIRI SAYA"): pop_menu_mandiri(user)
+    
+    tgl = st.date_input("Rekap Absensi Tanggal:", datetime.now())
+    data_log = process_attendance([URL_PNS, URL_PPPK], list(DATABASE_INFO.keys()), tgl)
+    render_monitoring_list(list(DATABASE_INFO.keys()), data_log)
+
+def render_monitoring_list(list_nama, data_log):
+    """Menampilkan list pegawai dengan indikator warna"""
+    for p in sorted(list_nama):
+        d = data_log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
+        color = "#10B981" if d['k'] == "HADIR" else "#EF4444"
+        st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:10px; margin-bottom:8px; border-left:6px solid {color};">
+                <div style="display: flex; justify-content: space-between;">
+                    <b>{p}</b>
+                    <span style="color:{color}; font-weight:bold;">{d['k']}</span>
+                </div>
+                <small>🕒 Masuk: {d['m']} | 🕒 Pulang: {d['p']}</small>
+            </div>
+        """, unsafe_allow_html=True)
