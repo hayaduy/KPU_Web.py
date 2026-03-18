@@ -1,141 +1,156 @@
-import streamlit as st
 import pandas as pd
 import requests
+from io import StringIO, BytesIO
 from datetime import datetime
-from database import DATABASE_INFO
-# Import semua fungsi logic dari file core_logic.py
-from core_logic import (
-    process_attendance, 
-    get_lapkin_data, 
-    create_excel_file, 
-    URL_PNS, 
-    URL_PPPK
-)
+import calendar
+import re
 
-# Konfigurasi konstanta
-LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
-              "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-# URL API LAPKIN sudah diperbarui sesuai input terakhir Abang
-URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbyXtsnv9OQ1qDkF41iCsqWzcQbqy0YKmrdrzzR4bAno19g3RRWjhpxxeKTDW1c05Irz/exec"
-URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
-URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
+# --- KONFIGURASI URL ---
+URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
+URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 
-# --- 1. LOGIKA PENANDATANGAN (KHUSUS UI) ---
-def get_approver_options(user_nama):
-    if user_nama not in DATABASE_INFO:
-        return ["Suwanto, SH., MH."], 0
-    info = DATABASE_INFO[user_nama]
-    jabatan = info[1]
-    atasan_list = ["Suwanto, SH., MH.", "Wawan Setiawan, SH", "Ineke Setiyaningsih, S.Sos", "Farah Agustina Setiawati, SH", "Rusma Ariati, SE"]
-    idx = 0
-    if any(x in jabatan for x in ["Teknis", "Pemilu"]): idx = 1
-    elif any(x in jabatan for x in ["Keuangan", "Umum", "Logistik"]): idx = 2
-    elif any(x in jabatan for x in ["Hukum", "SDM"]): idx = 3
-    elif any(x in jabatan for x in ["Perencanaan", "Data"]): idx = 4
-    return atasan_list, idx
+def clean_name_for_match(name):
+    """Menghapus gelar dan karakter khusus agar pencarian akurat"""
+    if not name: return ""
+    # Hapus gelar umum (S.Sos, SH, MH, SE, dsb) dan titik koma
+    n = str(name).lower()
+    n = re.sub(r'\,.*', '', n) # Hapus apapun setelah koma (gelar)
+    n = re.sub(r'\b(h|sh|mh|se|s\.sos|st|mm|spd)\b', '', n) # Hapus gelar spesifik
+    return "".join(n.split()).replace(".", "")
 
-# --- 2. UI COMPONENTS ---
-def inject_custom_css():
-    st.markdown("""<style>[data-testid="stMetricValue"] { font-size: 24px; } .stButton button { border-radius: 8px; }</style>""", unsafe_allow_html=True)
-
-@st.dialog("📋 AKSES MANDIRI & LAPKIN")
-def pop_menu_mandiri(user):
-    info = DATABASE_INFO[user['nama']]
-    tab_abs, tab_lap, tab_dl = st.tabs(["🚀 ABSEN", "📝 LAPKIN", "📥 DOWNLOAD"])
+# --- 1. LOGIKA ABSENSI ---
+def process_attendance(urls, daftar_nama, tgl_pilihan):
+    attendance_results = {nama: {"m": "--:--", "p": "--:--", "k": "ALPA"} for nama in daftar_nama}
+    str_tgl_target = tgl_pilihan.strftime("%d/%m/%Y")
     
-    with tab_abs:
-        if st.button("KLIK UNTUK ABSEN (HADIR)", use_container_width=True, type="primary"):
-            target_url = URL_API_PNS if info[4] == "PNS" else URL_API_PPPK
-            payload = {"nama": user['nama'], "nip": info[0], "jabatan": info[1], "status": info[4]}
-            try:
-                res = requests.post(target_url, json=payload, timeout=10)
-                st.success("Presensi Berhasil!") if "Success" in res.text else st.error(res.text)
-            except: st.error("Gagal terhubung")
+    for url in urls:
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                df = pd.read_csv(StringIO(response.text))
+                if not df.empty:
+                    for _, row in df.iterrows():
+                        ts = str(row.iloc[0])
+                        if str_tgl_target in ts:
+                            nama_sheet = row.iloc[1]
+                            # Cocokkan nama dengan versi bersih
+                            for nama_db in daftar_nama:
+                                if clean_name_for_match(nama_sheet) == clean_name_for_match(nama_db):
+                                    try: jam = ts.split(" ")[1][:5]
+                                    except: jam = "--:--"
+                                    if attendance_results[nama_db]["m"] == "--:--":
+                                        attendance_results[nama_db]["m"] = jam
+                                        attendance_results[nama_db]["k"] = "HADIR"
+                                    attendance_results[nama_db]["p"] = jam
+        except: continue
+    return attendance_results
 
-    with tab_lap:
-        stat = st.selectbox("Status Kehadiran:", ["HADIR", "IZIN", "TL", "CUTI"])
-        hasil = st.text_input("Hasil Kerja / Output Hari Ini:") 
-        if st.button("KIRIM DATA LAPKIN", use_container_width=True):
-            if hasil:
-                payload = {"nama": user['nama'], "nip": info[0], "jabatan": info[1], "status": stat, "uraian": hasil}
-                try:
-                    requests.post(URL_API_LAPKIN, json=payload, timeout=10)
-                    st.success("Lapkin Terkirim!")
-                except: st.error("Gagal mengirim")
-            else: st.warning("Mohon isi hasil kerja!")
+# --- 2. LOGIKA AMBIL DATA LAPKIN ---
+def get_lapkin_data(URL_API_LAPKIN, LIST_BULAN, nama_user, bulan_nama, tahun):
+    try:
+        response = requests.get(f"{URL_API_LAPKIN}?v={datetime.now().timestamp()}", timeout=15)
+        if response.status_code == 200:
+            data_json = response.json()
+            bulan_angka = LIST_BULAN.index(bulan_nama) + 1
+            filtered_data = []
+            target_clean = clean_name_for_match(nama_user)
 
-    with tab_dl:
-        bln = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now().month-1)
-        thn = st.selectbox("Tahun:", [2025, 2026], index=1)
-        list_atasan, def_idx = get_approver_options(user['nama'])
-        ttd_pilih = st.selectbox("Penandatangan:", list_atasan, index=def_idx)
+            for item in data_json:
+                val_nama = clean_name_for_match(item.get('nama', ''))
+                if val_nama == target_clean:
+                    val_tgl = str(item.get('tanggal', ''))
+                    dt_obj = None
+                    # Coba parsing tanggal
+                    for fmt in ["%d/%m/%Y", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d"]:
+                        try:
+                            clean_tgl = val_tgl.split(' ')[0]
+                            dt_obj = datetime.strptime(clean_tgl, fmt)
+                            break
+                        except: continue
+                    
+                    if dt_obj and dt_obj.month == bulan_angka and dt_obj.year == tahun:
+                        filtered_data.append({
+                            "tgl": dt_obj.day,
+                            "hari_tgl": dt_obj.strftime("%d/%m/%Y"),
+                            "hasil": item.get('uraian', '-')
+                        })
+            return sorted(filtered_data, key=lambda x: x['tgl'])
+    except: return []
+    return []
+
+# --- 3. LOGIKA GENERATOR EXCEL ---
+def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, ttd_pilih, data_lapkin):
+    output = BytesIO()
+    if user_nama not in DATABASE_INFO: return None
         
-        if st.button("🔍 PROSES EXCEL", use_container_width=True):
-            with st.spinner("Menyusun Laporan..."):
-                # 1. Ambil data dari API GSheet via core_logic
-                data = get_lapkin_data(URL_API_LAPKIN, LIST_BULAN, user['nama'], bln, thn)
-                
-                if not data:
-                    st.warning(f"Data Lapkin untuk {bln} {thn} tidak ditemukan. Excel akan tetap dibuat tanpa rincian kegiatan.")
-                
-                # 2. Buat file Excel
-                excel_data = create_excel_file(DATABASE_INFO, LIST_BULAN, user['nama'], bln, thn, ttd_pilih, data)
-                
-                if excel_data:
-                    st.success(f"Laporan {bln} {thn} siap diunduh!")
-                    st.download_button(
-                        label="📥 DOWNLOAD FILE SEKARANG", 
-                        data=excel_data, 
-                        file_name=f"LAPKIN_{user['nama']}_{bln}_{thn}.xlsx", 
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                        use_container_width=True
-                    )
-                else:
-                    st.error("Terjadi kesalahan saat membuat file Excel.")
+    info = DATABASE_INFO[user_nama]
+    # info[0]=NIP, [1]=Jabatan, [2]=Unit, [3]=Subbag, [4]=Status, [5]=Pass, [6]=Role
+    
+    atasan_nama = ttd_pilih
+    # Logika Jabatan Atasan
+    if atasan_nama == "Suwanto, SH., MH.": 
+        j_atasan = "Sekretaris KPU Kab. Hulu Sungai Selatan"
+    else:
+        info_atasan = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])
+        j_raw = info_atasan[1]
+        j_atasan = j_raw
+        if any(x in j_raw for x in ["Kasubbag", "TP-Hupmas", "Teknis"]):
+            if "TP-Hupmas" in j_raw or "Teknis" in j_raw: j_atasan = "Kepala Sub Bagian Teknis Penyelenggaraan Pemilu,\nPartisipasi dan Hubungan Masyarakat"
+            elif "Keuangan" in j_raw: j_atasan = "Kepala Sub Bagian Keuangan,\nUmum dan Logistik"
+            elif "Hukum" in j_raw: j_atasan = "Kepala Sub Bagian Hukum dan\nSumber Daya Manusia"
+            elif "Perencanaan" in j_raw: j_atasan = "Kepala Sub Bagian Perencanaan,\nData dan Informasi"
 
-# --- 3. DASHBOARD VIEWS ---
-def show_pegawai(user):
-    inject_custom_css()
-    st.subheader(f"Halo, {user['nama']} 👋")
-    c1, c2 = st.columns(2)
-    if c1.button("🚀 ABSEN / HADIR", use_container_width=True, type="primary"): pop_menu_mandiri(user)
-    if c2.button("📝 ISI LAPKIN", use_container_width=True): pop_menu_mandiri(user)
-    st.divider()
-    # Manggil logic presensi
-    data_log = process_attendance([URL_PNS, URL_PPPK], [user['nama']], datetime.now())
-    render_monitoring_list([user['nama']], data_log)
+    hr_t = calendar.monthrange(tahun, LIST_BULAN.index(bulan_nama)+1)[1]
+    tgl_ttd = f"{hr_t} {bulan_nama} {tahun}"
 
-def show_admin(user, database):
-    inject_custom_css()
-    st.subheader("🏛️ Administrator Panel")
-    if st.button("📂 MENU MANDIRI SAYA", use_container_width=True): pop_menu_mandiri(user)
-    tab1, tab2 = st.tabs(["🔍 MONITORING", "👥 KELOLA USER"])
-    with tab1:
-        tgl = st.date_input("Pilih Tanggal Monitoring:", datetime.now())
-        data_log = process_attendance([URL_PNS, URL_PPPK], list(database.keys()), tgl)
-        render_monitoring_list(list(database.keys()), data_log)
-    with tab2:
-        st.dataframe(pd.DataFrame([{"Nama": k, "NIP": v[0], "Jabatan": v[1], "Role": v[3]} for k, v in database.items()]), use_container_width=True)
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        worksheet = workbook.add_worksheet('Laporan')
+        
+        # Formats
+        f_h = workbook.add_format({'bold': True, 'align': 'center', 'font_size': 12})
+        f_b = workbook.add_format({'bold': True})
+        f_border = workbook.add_format({'border': 1, 'text_wrap': True, 'valign': 'top'})
+        f_center = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'top'})
+        f_table_h = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'bg_color': '#D9D9D9'})
+        
+        # Header
+        worksheet.merge_range('A1:E1', 'LAPORAN BULANAN', f_h)
+        worksheet.merge_range('A2:E2', 'SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN', f_h)
+        
+        worksheet.write('A4', 'Bulan', f_b); worksheet.write('B4', f': {bulan_nama}')
+        worksheet.write('A5', 'Nama', f_b); worksheet.write('B5', f': {user_nama}')
+        # INDEX DIPERBAIKI DISINI AGAR TIDAK MUNCUL PASSWORD
+        worksheet.write('A6', 'Jabatan', f_b);    worksheet.write('B6', f': {info[1]}')
+        worksheet.write('A7', 'Unit Kerja', f_b); worksheet.write('B7', f': {info[2]}')
+        worksheet.write('A8', 'Sub Bagian', f_b); worksheet.write('B8', f': {info[3]}')
+        worksheet.write('A10', 'Hasil Kinerja', f_b); worksheet.write('B10', ':')
+        
+        headers = ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja / Output", "Keterangan"]
+        for i, h in enumerate(headers): worksheet.write(10, i, h, f_table_h)
+        
+        row = 11
+        if not data_lapkin:
+            worksheet.merge_range(row, 0, row, 4, "Data Tidak Ditemukan", f_center)
+            row += 1
+        else:
+            for i, d in enumerate(data_lapkin):
+                worksheet.write(row, 0, i + 1, f_center)
+                worksheet.write(row, 1, d['hari_tgl'], f_center)
+                worksheet.write(row, 2, "", f_border)
+                worksheet.write(row, 3, d['hasil'], f_border)
+                worksheet.write(row, 4, "Hadir", f_center)
+                row += 1
+            
+        row_f = row + 2
+        worksheet.write(row_f, 3, f"Kandangan, {tgl_ttd}")
+        worksheet.write(row_f+1, 3, "Atasan Langsung,")
+        worksheet.write(row_f+4, 3, j_atasan, workbook.add_format({'text_wrap': True}))
+        worksheet.write(row_f+8, 3, atasan_nama, f_b)
+        
+        nip_ttd = DATABASE_INFO.get(atasan_nama, ["-"])[0]
+        worksheet.write(row_f+9, 3, f"NIP. {nip_ttd}")
+        
+        worksheet.set_column('A:A', 4); worksheet.set_column('B:B', 18); worksheet.set_column('C:D', 40)
 
-def show_bendahara(user):
-    inject_custom_css()
-    st.subheader("💰 Menu Bendahara")
-    if st.button("📂 MENU MANDIRI SAYA", use_container_width=True): pop_menu_mandiri(user)
-    tgl = st.date_input("Rekap Kehadiran Tanggal:", datetime.now())
-    data_log = process_attendance([URL_PNS, URL_PPPK], list(DATABASE_INFO.keys()), tgl)
-    render_monitoring_list(list(DATABASE_INFO.keys()), data_log)
-
-def render_monitoring_list(list_nama, data_log):
-    # Urutkan nama agar rapi
-    for p in sorted(list_nama):
-        d = data_log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
-        color = "#10B981" if d['k'] == "HADIR" else "#EF4444"
-        st.markdown(f"""
-        <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:5px; border-left:5px solid {color};">
-            <small style="color:#888;">{p}</small><br>
-            <div style="display:flex; justify-content:space-between;">
-                <span><b>{d['m']} - {d['p']}</b></span>
-                <span style="color:{color}; font-weight:bold;">{d['k']}</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    return output.getvalue()
