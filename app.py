@@ -1,7 +1,7 @@
 import streamlit as st
 from database import DATABASE_INFO
 # Ubah baris 4 di app.py menjadi:
-from .dashboards import show_admin, show_bendahara, show_pegawai
+from dashboards import show_admin, show_bendahara, show_pegawai
 # ATAU jika cara di atas gagal, gunakan:
 import dashboards as db
 # Lalu panggil fungsinya dengan db.show_admin(u, DATABASE_INFO), dll.
