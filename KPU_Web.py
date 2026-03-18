@@ -9,7 +9,7 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v88.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v89.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 LIBUR_DAN_CUTI_2026 = {
@@ -38,6 +38,10 @@ st.markdown("""
     .status-terlambat { color: #F59E0B; }
     .stButton>button { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2) !important; color: white !important; border-radius: 8px; font-weight: bold; }
     [data-testid="stSidebar"] { display: none; }
+    
+    /* CSS Tambahan agar Pop Up Terbaca Jelas */
+    div[data-testid="stDialog"] { background-color: #1a1a1a !important; color: white !important; }
+    div[role="radiogroup"] label { color: white !important; font-weight: bold !important; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -55,7 +59,7 @@ DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
-    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum dan SDM", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
+    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum and SDM", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan, Data dan Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Suci Lestari, S.Ikom": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Athaya Insyira Khairani, S.H": ["20010712202506 2 017", "Penyusun Materi Hukum Dan Perundang- Undangan", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004"],
@@ -102,21 +106,20 @@ def clean_logic(name):
 # --- 4. DIALOGS ---
 @st.dialog("Update Data")
 def pop_update(nama):
-    t_key = datetime.now(wita_tz).strftime("%Y-%m-%d")
-    hldy = LIBUR_DAN_CUTI_2026.get(t_key)
-    if hldy or datetime.now(wita_tz).weekday() >= 5:
-        st.error(f"Sistem Terkunci! Hari ini {hldy if hldy else 'Akhir Pekan'}. ☕")
-        return
-    st.write(f"Pegawai: **{nama}**")
-    tipe = st.radio("Pilih Update:", ["Absen", "Lapkin"])
+    st.markdown('<div style="color:white; font-size:18px;">Input Data untuk:</div>', unsafe_allow_html=True)
+    st.write(f"**{nama}**")
+    
+    # Background diperjelas agar radio button kontras
+    tipe = st.radio("Pilih Kegiatan:", ["Absen", "Lapkin"])
     info = DATABASE_INFO[nama]
+    
     if tipe == "Absen":
         if st.button("🚀 KIRIM ABSEN SEKARANG"):
             f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
             payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
             try:
                 requests.post(f"https://docs.google.com/forms/d/e/{f_id}/formResponse", data=payload, timeout=5)
-                st.success("Sukses!"); time.sleep(1.5); st.rerun()
+                st.success("Terkirim!"); time.sleep(1.5); st.rerun()
             except: st.success("Selesai!"); time.sleep(1.5); st.rerun()
     else:
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
@@ -127,7 +130,7 @@ def pop_update(nama):
 
 @st.dialog("Advanced Rekap Excel", width="large")
 def pop_rekap():
-    st.markdown("### 📊 FILTER REKAP LENGKAP")
+    st.markdown("### 📊 FILTER REKAP")
     c1, c2 = st.columns(2)
     with c1: r_bulan = st.selectbox("Pilih Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
     with c2: r_tahun = st.selectbox("Pilih Tahun:", ["2025", "2026", "2027"], index=1)
@@ -157,26 +160,26 @@ def pop_rekap():
 
 @st.dialog("Download Laporan Bulanan")
 def pop_cetak():
-    c_b = st.selectbox("Pilih Bulan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
-    c_n = st.selectbox("Pilih Pegawai:", list(DATABASE_INFO.keys()))
-    if st.button("📊 GENERATE LAPORAN", use_container_width=True):
+    c_b = st.selectbox("Pilih Bulan Laporan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
+    c_n = st.selectbox("Pilih Nama Pegawai:", list(DATABASE_INFO.keys()))
+    if st.button("📊 GENERATE LAPKIN", use_container_width=True):
         df = get_clean_df(URL_LAPKIN)
         if df is not None:
             df_f = df[(df.iloc[:, 1] == c_n)].copy()
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
                 atasan_nama = info[5]
-                # FIX JABATAN SEKRETARIS UNTUK PAK SUWANTO
-                j_atasan_raw = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])[1]
+                # Logika Jabatan Sekretaris Pak Suwanto
                 if atasan_nama == "Suwanto, SH., MH.": j_atasan = "Sekretaris KPU Kab. Hulu Sungai Selatan"
                 elif "Sekretaris" in info[1]: j_atasan = "Ketua KPU Kab. Hulu Sungai Selatan"
                 else:
-                    j_atasan = j_atasan_raw
-                    if "Kasubbag" in j_atasan or "TP-Hupmas" in j_atasan:
-                        if "TP-Hupmas" in j_atasan: j_atasan = "Kepala Sub Bagian Teknis Penyelenggaraan Pemilu,\nPartisipasi dan Hubungan Masyarakat"
-                        elif "Keuangan" in j_atasan: j_atasan = "Kepala Sub Bagian Keuangan,\nUmum dan Logistik"
-                        elif "Hukum" in j_atasan: j_atasan = "Kepala Sub Bagian Hukum dan\nSumber Daya Manusia"
-                        elif "Perencanaan" in j_atasan: j_atasan = "Kepala Sub Bagian Perencanaan,\nData dan Informasi"
+                    j_raw = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])[1]
+                    j_atasan = j_raw
+                    if "Kasubbag" in j_raw or "TP-Hupmas" in j_raw:
+                        if "TP-Hupmas" in j_raw: j_atasan = "Kepala Sub Bagian Teknis Penyelenggaraan Pemilu,\nPartisipasi dan Hubungan Masyarakat"
+                        elif "Keuangan" in j_raw: j_atasan = "Kepala Sub Bagian Keuangan,\nUmum dan Logistik"
+                        elif "Hukum" in j_raw: j_atasan = "Kepala Sub Bagian Hukum dan\nSumber Daya Manusia"
+                        elif "Perencanaan" in j_raw: j_atasan = "Kepala Sub Bagian Perencanaan,\nData dan Informasi"
 
                 hr_t = calendar.monthrange(datetime.now(wita_tz).year, LIST_BULAN.index(c_b)+1)[1]
                 tgl_f = f"{hr_t} {c_b} {datetime.now(wita_tz).year}"
