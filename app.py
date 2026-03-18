@@ -1,6 +1,7 @@
 import streamlit as st
 from database import DATABASE_INFO
-from dashboards import show_admin, show_bendahara, show_pegawai
+# PERBAIKAN: Ubah 'dashboards' menjadi 'dashboard' agar sesuai nama file
+from dashboard import show_admin, show_bendahara, show_pegawai
 from streamlit_cookies_manager import EncryptedCookieManager
 import os
 
@@ -31,26 +32,23 @@ if not st.session_state.logged_in:
     remember_me = st.checkbox("Simpan Login (7 Hari)")
     
     if st.button("Masuk", use_container_width=True):
-        # Bersihkan input NIP dari spasi
         clean_nip = nip.replace(" ", "")
         
-        # Cari user berdasarkan NIP (NIP ada di indeks 0)
+        # Cari user berdasarkan NIP (NIP di indeks 0)
         match = next((k for k, v in DATABASE_INFO.items() if clean_nip in v[0].replace(" ", "")), None)
         
         if match:
             user_data = DATABASE_INFO[match]
-            db_pwd = user_data[2]  # Password di indeks 2
+            
+            # --- PERBAIKAN INDEKS DATABASE ---
+            # Berdasarkan struktur: [0:NIP, 1:Jabatan, 2:Unit, 3:Subbag, 4:Status, 5:Password, 6:Role]
+            db_pwd = str(user_data[5]) # Password ada di indeks 5
+            role = str(user_data[6]).strip().title() # Role ada di indeks 6
             
             if pwd == db_pwd:
-                # Ambil ROLE dari indeks 3 (admin/bendahara/pegawai)
-                # Gunakan .title() agar 'admin' jadi 'Admin' untuk sinkronisasi router
-                role = user_data[3].strip().title() 
-                
-                # Set Session State
                 st.session_state.logged_in = True
                 st.session_state.user = {"nama": match, "role": role}
                 
-                # Simpan ke Cookies Browser jika dicentang
                 if remember_me:
                     cookies["saved_user"] = match
                     cookies["saved_role"] = role
@@ -72,15 +70,14 @@ else:
     st.sidebar.caption(f"Role: {u['role']}")
     
     if st.sidebar.button("🚪 Keluar / Logout", use_container_width=True):
-        st.session_state.logged_in = False
-        st.session_state.user = None
+        # Bersihkan session & cookies
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
         if "saved_user" in cookies:
             del cookies["saved_user"]
             del cookies["saved_role"]
             cookies.save()
         st.rerun()
-
-    st.markdown("---")
 
     # Jalankan Dashboard sesuai Role
     if u['role'] == "Admin":
