@@ -1,5 +1,5 @@
 streamlit
 pandas
 requests
-pytz
+xlsxwriter
 streamlit-cookies-manager
