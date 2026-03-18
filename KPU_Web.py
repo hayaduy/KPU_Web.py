@@ -9,7 +9,7 @@ import random
 import time
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v87.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v88.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 LIBUR_DAN_CUTI_2026 = {
@@ -52,7 +52,7 @@ FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
 DATABASE_INFO = {
-    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris KPU", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
+    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum dan SDM", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
@@ -165,15 +165,14 @@ def pop_cetak():
             df_f = df[(df.iloc[:, 1] == c_n)].copy()
             if not df_f.empty:
                 info = DATABASE_INFO[c_n]
-                # AMBIL NAMA & JABATAN ATASAN
                 atasan_nama = info[5]
-                # LOGIKA JABATAN ATASAN LENGKAP
-                if "Sekretaris" in info[1]: j_atasan = "Ketua KPU Kab. Hulu Sungai Selatan"
+                # FIX JABATAN SEKRETARIS UNTUK PAK SUWANTO
+                j_atasan_raw = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])[1]
+                if atasan_nama == "Suwanto, SH., MH.": j_atasan = "Sekretaris KPU Kab. Hulu Sungai Selatan"
+                elif "Sekretaris" in info[1]: j_atasan = "Ketua KPU Kab. Hulu Sungai Selatan"
                 else:
-                    # Ambil jabatan lengkap atasan dari database info atasan
-                    j_atasan = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])[1]
-                    if "Kasubbag" in j_atasan:
-                        # Translate Kasubbag ke format lengkap penandatangan
+                    j_atasan = j_atasan_raw
+                    if "Kasubbag" in j_atasan or "TP-Hupmas" in j_atasan:
                         if "TP-Hupmas" in j_atasan: j_atasan = "Kepala Sub Bagian Teknis Penyelenggaraan Pemilu,\nPartisipasi dan Hubungan Masyarakat"
                         elif "Keuangan" in j_atasan: j_atasan = "Kepala Sub Bagian Keuangan,\nUmum dan Logistik"
                         elif "Hukum" in j_atasan: j_atasan = "Kepala Sub Bagian Hukum dan\nSumber Daya Manusia"
@@ -185,7 +184,6 @@ def pop_cetak():
                 with pd.ExcelWriter(out, engine='openpyxl') as writer:
                     header = [["LAPORAN BULANAN"], ["SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN"], [], ["Bulan", f": {c_b}"], ["Nama", f": {c_n}"], ["Jabatan", f": {info[1]}"], ["Unit Kerja", f": {info[2]}"], ["Sub Bagian", f": {info[3]}"], [], ["Hasil Kinerja", ":"], ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja/Output", "Keterangan"]]
                     body = [[i+1, f"{pd.to_datetime(r.iloc[0], dayfirst=True).day} {LIST_BULAN[pd.to_datetime(r.iloc[0], dayfirst=True).month-1]} {pd.to_datetime(r.iloc[0], dayfirst=True).year}", f"Melaksanakan Pekerjaan sesuai Tupoksi pada {info[3]} di {info[2]}", r.iloc[5], "-"] for i, (_, r) in enumerate(df_f.iterrows())]
-                    # FOOTER DENGAN JABATAN LENGKAP
                     footer = [[], ["", "", "", f"Kandangan, {tgl_f}"], ["", "", "", "Atasan Langsung,"], ["", "", "", j_atasan], [], [], [], ["", "", "", atasan_nama], ["", "", "", f"NIP. {info[6]}"]]
                     pd.DataFrame(header).to_excel(writer, index=False, header=False, sheet_name="Laporan")
                     pd.DataFrame(body).to_excel(writer, startrow=11, index=False, header=False, sheet_name="Laporan")
