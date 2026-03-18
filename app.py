@@ -1,10 +1,10 @@
 import streamlit as st
 from database import DATABASE_INFO
-# PERBAIKAN: Ubah 'dashboards' menjadi 'dashboard' agar sesuai nama file
-from dashboards import show_admin, show_bendahara, show_pegawai
-from streamlit_cookies_manager import EncryptedCookieManager
-import os
-
+# Ubah baris 4 di app.py menjadi:
+from .dashboards import show_admin, show_bendahara, show_pegawai
+# ATAU jika cara di atas gagal, gunakan:
+import dashboards as db
+# Lalu panggil fungsinya dengan db.show_admin(u, DATABASE_INFO), dll.
 # --- 1. KONFIGURASI COOKIES ---
 cookies = EncryptedCookieManager(password="kpu_hss_secret_key_2026")
 if not cookies.ready():
