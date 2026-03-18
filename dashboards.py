@@ -15,27 +15,21 @@ URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbxhhNvz5thj5PjA5W19Te0
 LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
               "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-# --- 2. FUNGSI AMBIL DATA LAPKIN (SPESIFIK KOLOM F) ---
+# --- 2. FUNGSI AMBIL DATA LAPKIN ---
 def get_lapkin_data(nama_user, bulan_nama, tahun):
     try:
-        # Tambahkan v=... supaya tidak cache
         response = requests.get(f"{URL_API_LAPKIN}?v={datetime.now().timestamp()}", timeout=15)
-        
         if response.status_code == 200:
             data_json = response.json()
             bulan_angka = LIST_BULAN.index(bulan_nama) + 1
-            
             filtered_data = []
-            # Normalisasi nama target untuk perbandingan yang akurat
             target_clean = str(nama_user).strip().lower().replace(",", "").replace(".", "")
 
             for item in data_json:
                 val_nama = str(item.get('nama', '')).strip().lower().replace(",", "").replace(".", "")
-                
                 if val_nama == target_clean:
                     val_tgl = str(item.get('tanggal', ''))
                     dt_obj = None
-                    # Coba parsing tanggal dari berbagai kemungkinan format GSheet
                     for fmt in ["%d/%m/%Y", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d"]:
                         try:
                             clean_tgl = val_tgl.split(' ')[0] if ' ' in val_tgl else val_tgl
@@ -44,21 +38,17 @@ def get_lapkin_data(nama_user, bulan_nama, tahun):
                         except: continue
                     
                     if dt_obj and dt_obj.month == bulan_angka and dt_obj.year == tahun:
-                        # 'uraian' di JSON Apps Script haruslah data dari KOLOM F GSheet
                         hasil_kerja = item.get('uraian', '-')
-                        
                         filtered_data.append({
                             "tgl": dt_obj.day,
                             "hari_tgl": dt_obj.strftime("%d/%m/%Y"),
                             "hasil": hasil_kerja
                         })
-            
             return sorted(filtered_data, key=lambda x: x['tgl'])
-    except:
-        return []
+    except: return []
     return []
 
-# --- 3. GENERATOR EXCEL (URAIAN KOSONG, HASIL KERJA TERISI) ---
+# --- 3. GENERATOR EXCEL ---
 def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
     output = BytesIO()
     info_user = DATABASE_INFO[user_nama]
@@ -69,14 +59,12 @@ def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
         workbook = writer.book
         worksheet = workbook.add_worksheet('Laporan')
         
-        # Styles
         f_h = workbook.add_format({'bold': True, 'align': 'center', 'font_size': 12})
         f_b = workbook.add_format({'bold': True})
         f_border = workbook.add_format({'border': 1, 'text_wrap': True, 'valign': 'top'})
         f_center = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'top'})
         f_table_h = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'bg_color': '#D9D9D9'})
         
-        # Header Laporan
         worksheet.merge_range('A1:E1', 'LAPORAN KINERJA BULANAN', f_h)
         worksheet.merge_range('A2:E2', 'SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN', f_h)
         
@@ -84,51 +72,42 @@ def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
         worksheet.write('A5', 'Nama', f_b); worksheet.write('B5', f': {user_nama}')
         worksheet.write('A6', 'Jabatan', f_b); worksheet.write('B6', f': {info_user[1]}')
         
-        # Table Headers
         headers = ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja / Output", "Keterangan"]
-        for i, h in enumerate(headers):
-            worksheet.write(9, i, h, f_table_h)
+        for i, h in enumerate(headers): worksheet.write(9, i, h, f_table_h)
         
-        # Isi Data
         row = 10
         if not data_lapkin:
             worksheet.merge_range(row, 0, row, 4, "Data Belum Tersedia", f_center)
-            row += 1
         else:
             for i, d in enumerate(data_lapkin):
                 worksheet.write(row, 0, i + 1, f_center)
                 worksheet.write(row, 1, d['hari_tgl'], f_center)
-                # PERBAIKAN: Uraian Kosong (""), Hasil Kerja dari d['hasil']
                 worksheet.write(row, 2, "", f_border) 
                 worksheet.write(row, 3, d['hasil'], f_border) 
                 worksheet.write(row, 4, "Hadir", f_center)
                 row += 1
         
-        # Area Tanda Tangan
         row_ttd = row + 3
         last_day = calendar.monthrange(tahun, LIST_BULAN.index(bulan_nama)+1)[1]
-        
         worksheet.write(row_ttd, 3, f"Kandangan, {last_day} {bulan_nama} {tahun}")
         worksheet.write(row_ttd+1, 3, "Atasan Langsung,")
         worksheet.write(row_ttd+5, 3, ttd_nama, f_b)
         worksheet.write(row_ttd+6, 3, f"NIP. {info_ttd[0]}")
-        
-        worksheet.set_column('A:A', 4)
-        worksheet.set_column('B:B', 15)
-        worksheet.set_column('C:D', 40)
+        worksheet.set_column('A:A', 4); worksheet.set_column('B:B', 15); worksheet.set_column('C:D', 40)
         
     return output.getvalue()
 
 # --- 4. LOGIKA PENANDATANGAN ---
 def get_approver_options(user_nama):
     info = DATABASE_INFO[user_nama]
-    jabatan = info[1]
+    subbag = str(info[3]).lower() # Mengambil kolom Subbag (Indeks 3)
     atasan_list = ["Suwanto, SH., MH.", "Wawan Setiawan, SH", "Ineke Setiyaningsih, S.Sos", "Farah Agustina Setiawati, SH", "Rusma Ariati, SE"]
-    idx = 0
-    if any(x in jabatan for x in ["Teknis", "Pemilu"]): idx = 1
-    elif any(x in jabatan for x in ["Keuangan", "Umum", "Logistik"]): idx = 2
-    elif any(x in jabatan for x in ["Hukum", "SDM"]): idx = 3
-    elif any(x in jabatan for x in ["Perencanaan", "Data"]): idx = 4
+    
+    idx = 0 # Default Sekretaris
+    if "teknis" in subbag: idx = 1
+    elif any(x in subbag for x in ["keuangan", "umum", "logistik"]): idx = 2
+    elif any(x in subbag for x in ["hukum", "sdm"]): idx = 3
+    elif any(x in subbag for x in ["perencanaan", "data"]): idx = 4
     return atasan_list, idx
 
 # --- 5. UI COMPONENTS ---
@@ -170,7 +149,7 @@ def pop_menu_mandiri(user):
         if st.button("🔍 PROSES EXCEL", use_container_width=True):
             with st.spinner("Mengambil data..."):
                 excel_data = create_excel_file(user['nama'], bln, thn, ttd_pilih)
-                st.download_button("📥 DOWNLOAD FILE SEKARANG", excel_data, f"LAPORAN_{user['nama']}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button("📥 DOWNLOAD FILE SEKARANG", excel_data, f"LAPORAN_{user['nama']}.xlsx", use_container_width=True)
 
 # --- 6. DASHBOARD VIEWS ---
 def show_pegawai(user):
@@ -193,7 +172,17 @@ def show_admin(user, database):
         data_log = process_attendance([URL_PNS, URL_PPPK], list(database.keys()), tgl)
         render_monitoring_list(list(database.keys()), data_log)
     with tab2:
-        st.dataframe(pd.DataFrame([{"Nama": k, "NIP": v[0], "Jabatan": v[1], "Role": v[3]} for k, v in database.items()]), use_container_width=True)
+        # --- PERBAIKAN DI SINI: v[3] = Subbag, v[6] = Role ---
+        df_users = []
+        for k, v in database.items():
+            df_users.append({
+                "Nama": k,
+                "NIP": v[0],
+                "Jabatan": v[1],
+                "Subbag": v[3], # Kolom baru biar jelas
+                "Role": v[6]    # Sekarang mengambil Role yang benar (Admin/Pegawai)
+            })
+        st.dataframe(pd.DataFrame(df_users), use_container_width=True)
 
 def show_bendahara(user):
     inject_custom_css()
