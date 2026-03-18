@@ -1,48 +1,49 @@
-# database.py
-
-# Struktur Data: 
-# "Nama": ["NIP", "Jabatan", "Unit Kerja", "Sub Bagian", "Status", "Atasan", "NIP Atasan", "ROLE"]
+# --- DATABASE PEGAWAI KPU HSS ---
+# Password Default: kpuhss2026
 
 DATABASE_INFO = {
-    # --- ADMIN (3 Orang) ---
-    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. HSS", "-", "PNS", "Ketua KPU Kab. HSS", "-", "Admin"],
-    "Farah Agustina Setiawati, SH": ["19840828 201012 2 003", "Kasubbag Hukum & SDM", "Sekretariat KPU Kab. HSS", "Sub Bagian Hukum", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001", "Admin"],
-    "Abdurrahman": ["198810122025211031", "OPERATOR LAYANAN", "Sekretariat KPU Kab. HSS", "Sub Bagian Hukum", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003", "Admin"],
+    # --- PIMPINAN ---
+    "Suwanto, SH., MH.": ["197205212009121001", "Sekretaris", "kpuhss2026", "admin", "PNS"],
+    
+    # --- SUB BAGIAN PERENCANAAN DATA DAN INFORMASI (RENDATIN) ---
+    "Rusma Ariati, SE": ["198406212011012013", "Kepala Sub. Bagian Perencanaan Data dan Informasi", "kpuhss2026", "admin", "PNS"],
+    "Zainal Hilmi Yustan": ["198106152009101001", "Pranata Komputer Ahli Pertama", "kpuhss2026", "pegawai", "PNS"],
+    "Muhammad Hafiz Rijani, S.KOM": ["199201132020121004", "Pengolah Data Intelijen", "kpuhss2026", "pegawai", "PPPK"],
+    "Apriadi Rakhman": ["198904222024211013", "Ahli Pertama-Pranata Komputer", "kpuhss2026", "pegawai", "PPPK"],
+    "Alfian Ridhani, S.Kom": ["199511102024061001", "Pengelola Layanan Operasional", "kpuhss2026", "pegawai", "PNS"],
 
-    # --- BENDAHARA (5 Orang) ---
-    "Ahmad Erwan Rifani, S.HI": ["19830829 200811 1 001", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Bendahara"],
-    "Najmi Hidayati": ["19850608 200701 2 003", "Penata Kelola Sistem", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Bendahara"],
-    "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Bendahara"],
-    "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem", "Sekretariat KPU Kab. HSS", "Sub Bagian Hukum", "PNS", "Farah Agustina Setiawati, SH", "19840828 201012 2 003", "Bendahara"],
-    "Firda Aulia, S.Kom.": ["20020415202506 2 007", "Penata Kelola Sistem", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Bendahara"],
+    # --- SUB BAGIAN KEUANGAN, UMUM DAN LOGISTIK (KUL) ---
+    "Ineke Setiyaningsih, S.Sos": ["198310032009122001", "Kepala Sub Bagian Keuangan, Umum dan Logistik", "kpuhss2026", "admin", "PNS"],
+    "Helmalina": ["196803181990032003", "Penelaah Teknis Kebijakan", "kpuhss2026", "pegawai", "PNS"],
+    "Ahmad Erwan Rifani, S.HI": ["198308292008111001", "Penelaah Teknis Kebijakan", "kpuhss2026", "bendahara", "PNS"],
+    "Najmi Hidayati": ["198506082007012003", "Penata Kelola Sistem dan Teknologi Informasi", "kpuhss2026", "bendahara", "PNS"],
+    "Muhammad Aldi Hudaifi, S.Kom": ["200101212025061007", "Penata Kelola Sistem dan Teknologi Informasi", "kpuhss2026", "pegawai", "PNS"],
+    "Firda Aulia, S.Kom.": ["200204152025062007", "Penata Kelola Sistem dan Teknologi Informasi", "kpuhss2026", "pegawai", "PNS"],
+    "Sya'bani Rona Baika": ["199202072024212044", "Ahli Pertama-Pranata Komputer", "kpuhss2026", "bendahara", "PPPK"],
+    "Basuki Rahmat": ["197705022024211007", "Penata Kelola Pemilihan Umum Ahli Pertama", "kpuhss2026", "bendahara", "PPPK"],
+    "Saldoz Yedi": ["198008112025211019", "Operator Layanan Operasional", "kpuhss2026", "pegawai", "PPPK"],
+    "Mastoni Ridani": ["199106012025211018", "Operator Layanan Operasional", "kpuhss2026", "pegawai", "PPPK"],
+    "Suriadi": ["199803022025211005", "Pengelola Umum Operasional", "kpuhss2026", "pegawai", "PPPK"],
+    "Ami Aspihani": ["198204042025211031", "Operator Layanan Operasional", "kpuhss2026", "pegawai", "PPPK"],
+    "Emaliani": ["198906222025212027", "Pengadministrasi Perkantoran", "kpuhss2026", "pegawai", "PPPK"],
+    "Nadianti": ["199906062025212036", "PENGADMINISTRASI PERKANTORAN", "kpuhss2026", "pegawai", "PPPK"],
 
-    # --- PEGAWAI PNS ---
-    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. HSS", "Sub Bagian Teknis", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001", "Pegawai"],
-    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan & Logistik", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001", "Pegawai"],
-    "Rusma Ariati, SE": ["19840621 201101 2 013", "Kasubbag Perencanaan & Data", "Sekretariat KPU Kab. HSS", "Sub Bagian Perencanaan", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001", "Pegawai"],
-    "Suci Lestari, S.Ikom": ["19850108 201012 2 006", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. HSS", "Sub Bagian Teknis", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004", "Pegawai"],
-    "Athaya Insyira Khairani, S.H": ["20010712202506 2 017", "Penyusun Materi Hukum", "Sekretariat KPU Kab. HSS", "Sub Bagian Teknis", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004", "Pegawai"],
-    "Muhammad Ibnu Fahmi, S.H.": ["20010608202506 1 007", "Penyusun Materi Hukum", "Sekretariat KPU Kab. HSS", "Sub Bagian Teknis", "PNS", "Wawan Setiawan, SH", "19860601 201012 1 004", "Pegawai"],
-    "Helmalina": ["19680318 199003 2 003", "Penelaah Teknis Kebijakan", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Pegawai"],
-    "Muhammad Aldi Hudaifi, S.Kom": ["20010121202506 1 007", "Penata Kelola Sistem", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PNS", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Pegawai"],
-    "Jainal Abidin": ["19820712 200910 1 001", "Pengelola Layanan", "Sekretariat KPU Kab. HSS", "Sub Bagian Hukum", "PNS", "Farah Agustina Setiawati, SH", "19840828 201012 2 003", "Pegawai"],
-    "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem", "Sekretariat KPU Kab. HSS", "Sub Bagian Perencanaan", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013", "Pegawai"],
-    "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem", "Sekretariat KPU Kab. HSS", "Sub Bagian Perencanaan", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013", "Pegawai"],
+    # --- SUB BAGIAN TEKNIS PEMILU, PARTISIPASI DAN HUBUNGAN MASYARAKAT ---
+    "Wawan Setiawan, SH": ["198606012010121004", "Kepala Sub. Bagian Teknis Pemilu, Partisipasi dan Hubungan Masyarakat", "kpuhss2026", "admin", "PNS"],
+    "Suci Lestari, S.Ikom": ["198501082010122006", "Penelaah Teknis Kebijakan", "kpuhss2026", "pegawai", "PNS"],
+    "Athaya Insyira Khairani, S.H": ["200107122025062017", "Penyusun Materi Hukum dan Perundang-Undangan", "kpuhss2026", "pegawai", "PNS"],
+    "Muhammad Ibnu Fahmi, S.H.": ["200106082025061007", "Penyusun Materi Hukum dan Perundang-Undangan", "kpuhss2026", "pegawai", "PNS"],
+    "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "kpuhss2026", "pegawai", "PPPK"],
+    "Sulaiman": ["198411222024211010", "Penata Kelola Pemilihan Umum Ahli Pertama", "kpuhss2026", "pegawai", "PPPK"],
 
-    # --- PEGAWAI PPPK ---
-    "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU", "Sekretariat KPU Kab. HSS", "Sub Bagian Teknis", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004", "Pegawai"],
-    "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU", "Sekretariat KPU Kab. HSS", "Sub Bagian Teknis", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004", "Pegawai"],
-    "Basuki Rahmat": ["197705022024211007", "PENATA KELOLA PEMILU", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Pegawai"],
-    "Saldoz Yedi": ["198008112025211019", "OPERATOR LAYANAN", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Pegawai"],
-    "Mastoni Ridani": ["199106012025211018", "OPERATOR LAYANAN", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Pegawai"],
-    "Suriadi": ["199803022025211005", "PENGELOLA UMUM", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Pegawai"],
-    "Ami Aspihani": ["198204042025211031", "OPERATOR LAYANAN", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Pegawai"],
-    "Emaliani": ["198906222025212027", "PENGADMINISTRASI", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Pegawai"],
-    "Nadianti": ["199906062025212036", "PENGADMINISTRASI", "Sekretariat KPU Kab. HSS", "Sub Bagian Keuangan", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001", "Pegawai"],
-    "M Satria Maipadly": ["198905262024211016", "PENATA KELOLA PEMILU", "Sekretariat KPU Kab. HSS", "Sub Bagian Hukum", "PPPK", "Farah Agustina Setiawati, SH", "19840828 201012 2 003", "Pegawai"],
-    "Apriadi Rakhman": ["198904222024211013", "PRANATA KOMPUTER", "Sekretariat KPU Kab. HSS", "Sub Bagian Perencanaan", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013", "Pegawai"],
-    "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "PENATA KELOLA PEMILU", "Sekretariat KPU Kab. HSS", "Sub Bagian Perencanaan", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013", "Pegawai"]
+    # --- SUB BAGIAN HUKUM DAN SUMBER DAYA MANUSIA ---
+    "Farah Agustina Setiawati, SH": ["198408282010122003", "Kepala Sub. Bagian Hukum dan Sumber Daya Manusia", "kpuhss2026", "admin", "PNS"],
+    "Jainal Abidin": ["198207122009101001", "Pengelola layanan operasional", "kpuhss2026", "pegawai", "PNS"],
+    "Syaiful Anwar": ["197411272007101001", "Penata Kelola Sistem dan Teknologi Informasi", "kpuhss2026", "bendahara", "PNS"],
+    "M Satria Maipadly": ["198905262024211016", "Ahli Pertama-Penata Kelola Pemilu", "kpuhss2026", "pegawai", "PPPK"],
+    "Abdurrahman": ["199211022024061001", "Operator Layanan Operasional", "kpuhss2026", "admin", "PPPK"],
 }
 
-MASTER_PNS = [k for k, v in DATABASE_INFO.items() if v[4] == "PNS"]
-MASTER_PPPK = [k for k, v in DATABASE_INFO.items() if v[4] == "PPPK"]
+# --- MASTER LIST ---
+MASTER_PNS = [name for name, info in DATABASE_INFO.items() if info[4] == "PNS"]
+MASTER_PPPK = [name for name, info in DATABASE_INFO.items() if info[4] == "PPPK"]
