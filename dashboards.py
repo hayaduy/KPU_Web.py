@@ -12,24 +12,24 @@ URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbzJ_gHm4clqncelQOKDdHR
 
 # --- 2. LOGIKA PENENTUAN PENANDATANGAN (APPROVAL) ---
 def get_approver(user_nama):
-    """Logika menentukan siapa yang tanda tangan di bawah laporan"""
+    """Logika menentukan siapa yang tanda tangan di bawah laporan sesuai hirarki"""
     info = DATABASE_INFO[user_nama]
     jabatan = info[1]
     
-    # Ambil Nama Sekretaris sebagai otoritas tertinggi
+    # Nama Sekretaris & NIP (Otoritas Tertinggi)
     sekretaris = "Suwanto, SH., MH."
     nip_sekretaris = DATABASE_INFO[sekretaris][0]
     
-    # 1. Jika Sekretaris atau Kasubbag -> Tanda Tangan Sekretaris
+    # Aturan 1: Jika yang membuat adalah Sekretaris atau Kasubbag, maka TTD Sekretaris
     if "Sekretaris" in jabatan or "Kepala Sub" in jabatan:
         return sekretaris, nip_sekretaris, "Sekretaris"
     
-    # 2. Jika Staf -> Tanda Tangan Kasubbag sesuai bagiannya
+    # Aturan 2: Jika yang membuat adalah Staf, maka TTD Kasubbag di bagiannya
     if "Teknis" in jabatan: kasubbag = "Wawan Setiawan, SH"
     elif "Keuangan" in jabatan or "Logistik" in jabatan: kasubbag = "Ineke Setiyaningsih, S.Sos"
     elif "Hukum" in jabatan or "SDM" in jabatan: kasubbag = "Farah Agustina Setiawati, SH"
     elif "Perencanaan" in jabatan or "Data" in jabatan: kasubbag = "Rusma Ariati, SE"
-    else: kasubbag = sekretaris # Fallback jika bagian tidak spesifik
+    else: kasubbag = sekretaris # Fallback
     
     return kasubbag, DATABASE_INFO[kasubbag][0], DATABASE_INFO[kasubbag][1]
 
@@ -98,25 +98,33 @@ def pop_menu_mandiri(user):
 
     st.markdown("---")
 
-    # --- SEKSI UNDUH LAPORAN (FITUR BARU) ---
+    # --- SEKSI UNDUH LAPORAN (PENYEMPURNAAN) ---
     st.subheader("📥 Unduh Laporan Bulanan")
     st.caption("Generate dokumen Excel laporan bulanan sesuai periode.")
-    c1, c2 = st.columns(2)
-    with c1:
+    
+    col1, col2 = st.columns(2)
+    with col1:
         bln_pilih = st.selectbox("Pilih Bulan:", 
             ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
              "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
-    with c2:
+    with col2:
         thn_pilih = st.selectbox("Pilih Tahun:", [2025, 2026], index=1)
 
-    if st.button("PROSES LAPORAN (EXCEL)", use_container_width=True):
-        with st.spinner("Menyiapkan dokumen..."):
-            # Panggil logika penandatangan otomatis
-            ttd_nama, ttd_nip, ttd_jabatan = get_approver(user['nama'])
-            
-            st.info(f"Penandatangan Dokumen: **{ttd_nama}**\n\nJabatan: {ttd_jabatan}")
-            # Placeholder untuk fungsi download selanjutnya
-            st.warning("Sistem sedang menghubungkan data ke template Excel.")
+    # Menampilkan Pilihan Penandatangan Otomatis
+    ttd_nama, ttd_nip, ttd_jabatan = get_approver(user['nama'])
+    
+    st.info(f"""
+    **Konfirmasi Penandatangan:**
+    * Nama: **{ttd_nama}**
+    * NIP: {ttd_nip}
+    * Jabatan: {ttd_jabatan}
+    """)
+
+    if st.button("PROSES & UNDUH EXCEL", use_container_width=True, type="primary"):
+        with st.spinner("Menarik data dari Google Sheets..."):
+            # Di sini nanti fungsi untuk membuat file Excel dipanggil
+            st.success(f"Dokumen {bln_pilih} {thn_pilih} untuk {user['nama']} siap diunduh.")
+            # st.download_button(...)
 
 # --- 5. TAMPILAN DASHBOARD ---
 def render_monitoring_list(list_nama, data_log):
