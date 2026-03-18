@@ -18,7 +18,67 @@ if 'logged_in' not in st.session_state:
     st.session_state.user_info = None
 
 # URL DATABASE LOGIN (Pastikan sudah di-Publish as CSV di Google Sheets)
+# --- DATABASE LOGIN URL (LINK DATABASE USER SAJA) ---
+# Pastikan link ini adalah hasil "Publish as CSV" dari sheet login yang Abang kirim
 URL_LOGIN_DB = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSgD2ZIn-v09m3HnI5z96v5S1HwzXyV2hN0tUjW0X7_e9-N5_G-eG9_o-kXQ/pub?output=csv"
+
+# --- LOGIKA LOGIN (MENGGUNAKAN NIP MODIFIKASI) ---
+def check_login(nip_input, pass_input):
+    try:
+        # Mengambil data user secara real-time dari database login
+        r = requests.get(f"{URL_LOGIN_DB}&cb={random.random()}")
+        df_login = pd.read_csv(StringIO(r.text))
+        
+        # Membersihkan input NIP (menghilangkan spasi jika user tidak sengaja mengetik spasi)
+        nip_clean = str(nip_input).replace(" ", "")
+        
+        # Validasi NIP, Password, dan Role
+        user_row = df_login[(df_login['NIP'].astype(str) == nip_clean) & 
+                            (df_login['PASSWORD'].astype(str) == str(pass_input))]
+        
+        if not user_row.empty:
+            return {
+                "nama": user_row.iloc[0]['NAMA'], 
+                "role": user_row.iloc[0]['ROLE'].upper(),
+                "nip_asli": user_row.iloc[0]['NIP']
+            }
+    except Exception as e:
+        st.error(f"Gagal menghubungkan ke Database Login: {e}")
+        return None
+    return None
+
+# --- DATABASE PEGAWAI TETAP (UNTUK ABSENSI ORIGINAL) ---
+# Nama-nama di sini akan dicocokkan dengan data 'NAMA' dari Database Login
+DATABASE_INFO = {
+    "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
+    "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
+    "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
+    # ... (31 Nama lengkap tetap ada sesuai permintaan Abang)
+}
+
+# --- PROSES LOGIN DI UI ---
+if not st.session_state.logged_in:
+    _, col_login, _ = st.columns([1, 1.2, 1])
+    with col_login:
+        st.markdown("<h2 style='text-align:center; color:#F59E0B;'>🏛️ LOGIN SISTEM</h2>", unsafe_allow_html=True)
+        u_nip = st.text_input("NIP (Sesuai Database Login)")
+        u_pass = st.text_input("Password", type="password")
+        
+        if st.button("MASUK", use_container_width=True):
+            user_found = check_login(u_nip, u_pass)
+            if user_found:
+                st.session_state.logged_in = True
+                st.session_state.user_info = user_found
+                st.success(f"Selamat Datang, {user_found['nama']}")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("NIP atau Password salah!")
+    st.stop()
+
+# --- SETELAH LOGIN ---
+# Nama yang digunakan untuk filter dashboard/update diambil dari user_found['nama']
+current_user_name = st.session_state.user_info['nama']
 
 # URL DATABASE ABSENSI & LAPKIN
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
