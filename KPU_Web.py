@@ -5,22 +5,26 @@ from io import StringIO
 from datetime import datetime
 import pytz
 import time
+import random
 
-# --- 1. SETUP & STYLE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v145.0", layout="wide")
+# --- 1. KONFIGURASI DASAR ---
+st.set_page_config(page_title="KPU HSS Presence Hub v146.0", layout="wide")
 wita_tz = pytz.timezone('Asia/Makassar')
 
+# CSS Custom untuk tampilan Card dan Dashboard
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #450a0a 0%, #000000 50%, #7c2d12 100%); background-attachment: fixed; }
-    .card-box { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 15px; padding: 20px; margin-bottom: 15px; }
-    .status-tag { padding: 4px 10px; border-radius: 5px; font-weight: bold; font-size: 12px; }
-    .tag-pns { background-color: #3b82f6; color: white; }
-    .tag-pppk { background-color: #8b5cf6; color: white; }
+    .card-box { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 15px; padding: 20px; margin-bottom: 15px; backdrop-filter: blur(10px); }
+    .status-tag { padding: 4px 10px; border-radius: 5px; font-weight: bold; font-size: 11px; text-transform: uppercase; }
+    .tag-pns { background-color: #1d4ed8; color: white; }
+    .tag-pppk { background-color: #7c3aed; color: white; }
+    .header-main { text-align: center; color: #F59E0B; font-size: 28px; font-weight: bold; margin-bottom: 20px; }
+    .stButton>button { border-radius: 8px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATABASE LENGKAP (31 PEGAWAI) ---
+# --- 2. DATABASE UTAMA (31 PEGAWAI) ---
 DATABASE_INFO = {
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. HSS", "-", "PNS", "Ketua KPU Kab. HSS", "-", "Admin"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. HSS", "Teknis", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001", "Pegawai"],
@@ -55,103 +59,123 @@ DATABASE_INFO = {
     "Muhammad Hafiz Rijani, S.KOM": ["199603212025211031", "PENATA KELOLA PEMILU", "Sekretariat KPU Kab. HSS", "Perencanaan", "PPPK", "Rusma Ariati, SE", "19840621 201101 2 013", "Pegawai"]
 }
 
-# --- 3. DIALOGS (PENGISIAN MANDIRI) ---
+# --- 3. FUNGSI MODAL (FITUR MANDIRI PEGAWAI) ---
 
-@st.dialog("📝 INPUT LAPKIN HARIAN")
-def pop_lapkin(nama):
-    st.write(f"Laporan Kerja: **{nama}**")
-    tgl = st.date_input("Tanggal", value=datetime.now(wita_tz).date())
-    uraian = st.text_area("Apa kegiatan/pekerjaan Anda hari ini?", height=150)
-    if st.button("SIMPAN LAPKIN", use_container_width=True):
-        st.success("Laporan berhasil dikirim!"); time.sleep(1); st.rerun()
+@st.dialog("🚀 UPDATE ABSENSI HARIAN")
+def modal_absen(nama):
+    st.write(f"Pegawai: **{nama}**")
+    tipe = st.selectbox("Pilih Tipe Absen", ["Masuk Pagi", "Pulang Kantor", "Izin Khusus"])
+    st.info(f"Waktu saat ini: {datetime.now(wita_tz).strftime('%H:%M:%S')} WITA")
+    if st.button("KIRIM DATA ABSEN", use_container_width=True):
+        st.success("Absensi berhasil diperbarui!")
+        time.sleep(1); st.rerun()
 
-@st.dialog("🚀 UPDATE ABSENSI")
-def pop_absen(nama):
-    st.write(f"Update Absen: **{nama}**")
-    tipe = st.radio("Tipe Presensi", ["Masuk", "Pulang"])
-    jam = datetime.now(wita_tz).strftime("%H:%M:%S")
-    st.info(f"Waktu terdeteksi: {jam}")
-    if st.button("KIRIM SEKARANG", use_container_width=True):
-        st.success(f"Berhasil Absen {tipe} pada jam {jam}"); time.sleep(1); st.rerun()
+@st.dialog("📝 INPUT LAPORAN KINERJA (LAPKIN)")
+def modal_lapkin(nama):
+    st.write(f"Pengisian Lapkin untuk: **{nama}**")
+    tgl = st.date_input("Tanggal Kegiatan", value=datetime.now(wita_tz).date())
+    kegiatan = st.text_area("Uraian Pekerjaan/Hasil Kerja:", height=150, placeholder="Tuliskan aktivitas kerja Anda hari ini...")
+    if st.button("SIMPAN LAPORAN", use_container_width=True):
+        st.success("Laporan Kinerja harian telah tersimpan!")
+        time.sleep(1); st.rerun()
 
-# --- 4. DASHBOARD ADMIN (DENGAN FILTER) ---
-def dashboard_admin():
-    st.header("🏛️ Dashboard Admin")
+# --- 4. DASHBOARD PEGAWAI ---
+def dashboard_pegawai(user):
+    st.markdown(f'<div class="header-main">📱 HUB PEGAWAI</div>', unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align:center; color:white;'>Selamat Datang, <b>{user['nama']}</b></p>", unsafe_allow_html=True)
     
-    # FILTER JENIS PEGAWAI
-    col1, col2 = st.columns([1, 1])
-    filter_jenis = col1.multiselect("Filter Jenis Pegawai", ["PNS", "PPPK"], default=["PNS", "PPPK"])
-    tgl_pilih = col2.date_input("Tanggal Monitoring", value=datetime.now(wita_tz).date())
+    # Grid Menu Utama Mandiri
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<div class="card-box">', unsafe_allow_html=True)
+        st.write("### 🕒 Presensi")
+        if st.button("🚀 UPDATE ABSEN", use_container_width=True): modal_absen(user['nama'])
+        st.caption("Klik untuk absen masuk atau pulang")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('<div class="card-box">', unsafe_allow_html=True)
+        st.write("### 📝 Pekerjaan")
+        if st.button("📝 ISI LAPKIN", use_container_width=True): modal_lapkin(user['nama'])
+        st.caption("Klik untuk input uraian kerja harian")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="card-box" style="text-align:center;">', unsafe_allow_html=True)
+    st.write("### 📥 Laporan")
+    if st.button("📊 DOWNLOAD REKAP SAYA (EXCEL)", use_container_width=True):
+        st.toast("Menyusun file laporan...")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 5. DASHBOARD ADMIN ---
+def dashboard_admin():
+    st.markdown('<div class="header-main">🏛️ DASHBOARD ADMIN</div>', unsafe_allow_html=True)
+    
+    # Filter Area
+    with st.expander("🔍 Filter & Kontrol", expanded=True):
+        c1, c2, c3 = st.columns([1,1,1])
+        filter_jenis = c1.multiselect("Jenis Pegawai", ["PNS", "PPPK"], default=["PNS", "PPPK"])
+        tgl_monitor = c2.date_input("Tanggal", value=datetime.now(wita_tz).date())
+        if c3.button("🔄 REFRESH DATA"): st.rerun()
 
     st.write("---")
     
-    # Rendering 31 Pegawai berdasarkan Filter
+    # Loop 31 Pegawai dengan Filter
     for p, info in DATABASE_INFO.items():
-        jenis = info[4] # Index 4 adalah PNS/PPPK
+        jenis = info[4]
         if jenis in filter_jenis:
-            tag_class = "tag-pns" if jenis == "PNS" else "tag-pppk"
+            tag_clr = "tag-pns" if jenis == "PNS" else "tag-pppk"
             st.markdown(f"""
                 <div class="card-box">
-                    <div style="display:flex; justify-content:space-between;">
-                        <b>{p}</b>
-                        <span class="status-tag {tag_class}">{jenis}</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:16px; font-weight:bold; color:white;">{p}</span>
+                        <span class="status-tag {tag_clr}">{jenis}</span>
                     </div>
-                    <p style="font-size:12px; color:#cbd5e1; margin:0;">NIP: {info[0]} | Jabatan: {info[1]}</p>
-                    <hr style="margin:10px 0; border:0.1px solid rgba(255,255,255,0.1);">
-                    <div style="display:flex; gap:20px; font-size:13px;">
-                        <span>Masuk: <b style="color:#10B981;">07:30</b></span>
-                        <span>Pulang: <b style="color:#64748b;">--:--</b></span>
-                        <span>Status: <b style="color:#10B981;">HADIR</b></span>
+                    <div style="font-size:12px; color:#cbd5e1; margin-top:5px;">NIP: {info[0]} | {info[1]}</div>
+                    <div style="display:flex; gap:30px; margin-top:15px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+                        <div><small style="color:#94a3b8;">Masuk</small><br><b style="color:#10B981;">07:30</b></div>
+                        <div><small style="color:#94a3b8;">Pulang</small><br><b style="color:#64748b;">--:--</b></div>
+                        <div><small style="color:#94a3b8;">Status</small><br><b style="color:#10B981;">HADIR</b></div>
+                        <div style="flex-grow:1; text-align:right;"><br><small style="color:#F59E0B;">Lihat Detail →</small></div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
-# --- 5. DASHBOARD PEGAWAI (MANDIRI) ---
-def dashboard_pegawai(user):
-    st.header(f"📱 Hub Pegawai")
-    st.write(f"Halo, **{user['nama']}**")
-    
+# --- 6. DASHBOARD BENDAHARA ---
+def dashboard_bendahara():
+    st.markdown('<div class="header-main">💰 DASHBOARD BENDAHARA</div>', unsafe_allow_html=True)
+    st.info("Menu ini digunakan untuk validasi kehadiran terkait tunjangan dan uang makan.")
     st.markdown('<div class="card-box">', unsafe_allow_html=True)
-    st.subheader("Menu Utama")
-    c1, c2 = st.columns(2)
-    if c1.button("🚀 UPDATE ABSENSI", use_container_width=True): pop_absen(user['nama'])
-    if c2.button("📝 INPUT LAPKIN", use_container_width=True): pop_lapkin(user['nama'])
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="card-box">', unsafe_allow_html=True)
-    st.subheader("Laporan & Rekap")
-    if st.button("📥 DOWNLOAD LAPORAN BULANAN (EXCEL)", use_container_width=True):
-        st.toast("Menyiapkan file Excel...")
+    st.write("### Rekap Keuangan")
+    if st.button("📊 DOWNLOAD DATA BENDAHARA (ALL)"):
+        st.toast("Sedang mengunduh...")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 6. LOGIN & ROUTING ---
+# --- 7. SISTEM LOGIN & ROUTING ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
     _, center, _ = st.columns([1, 1.5, 1])
     with center:
-        st.markdown("<h2 style='text-align:center;'>LOGIN</h2>", unsafe_allow_html=True)
-        u_nip = st.text_input("NIP")
+        st.markdown("<h2 style='text-align:center; color:#F59E0B;'>🏛️ LOGIN HUB</h2>", unsafe_allow_html=True)
+        u_nip = st.text_input("NIP Pegawai")
         u_pass = st.text_input("Password", type="password")
-        if st.button("MASUK", use_container_width=True):
+        if st.button("MASUK KE SISTEM", use_container_width=True):
             clean_in = u_nip.replace(" ", "").replace(".", "")
             match = next((k for k, v in DATABASE_INFO.items() if clean_in in v[0].replace(" ", "").replace(".", "")), None)
             if match and u_pass == "kpuhss2026":
                 st.session_state.logged_in = True
                 st.session_state.user = {"nama": match, "role": DATABASE_INFO[match][7]}
                 st.rerun()
-            else: st.error("NIP atau Password salah!")
+            else: st.error("Maaf, NIP atau Password salah!")
     st.stop()
 
-# --- SIDEBAR LOGOUT ---
+# Logout di Sidebar
 if st.sidebar.button("🚪 LOGOUT"):
     st.session_state.logged_in = False
     st.rerun()
 
-# --- DASHBOARD SELECTOR ---
-role = st.session_state.user['role']
-if role == "Admin": dashboard_admin()
-elif role == "Bendahara": 
-    st.title("💰 Dashboard Bendahara")
-    st.info("Fitur validasi keuangan aktif.")
+# --- MENU ROUTER ---
+role_user = st.session_state.user['role']
+if role_user == "Admin": dashboard_admin()
+elif role_user == "Bendahara": dashboard_bendahara()
 else: dashboard_pegawai(st.session_state.user)
