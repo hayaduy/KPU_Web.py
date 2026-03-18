@@ -11,7 +11,7 @@ from math import radians, cos, sin, asin, sqrt
 from streamlit_js_eval import get_geolocation
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v92.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v93.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
 # KOORDINAT KANTOR KPU KAB. HSS
@@ -52,12 +52,21 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. LOGIC Jarak ---
+# --- 2. HELPERS (FIX: clean_logic added to global scope) ---
 def hitung_jarak(lat1, lon1, lat2, lon2):
     R = 6371000 # Meter
     dLat, dLon = radians(lat2 - lat1), radians(lon2 - lon1)
     a = sin(dLat / 2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dLon / 2)**2
     return R * 2 * asin(sqrt(a))
+
+def clean_logic(name):
+    return str(name).strip().lower().replace(",", "").replace(".", "").replace(" ", "")
+
+def get_clean_df(url):
+    try:
+        r = requests.get(f"{url}&cb={random.random()}", timeout=15)
+        return pd.read_csv(StringIO(r.text)).dropna(how='all')
+    except: return None
 
 # --- 3. CONFIGURATION & DATABASE (31 Orang) ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
@@ -70,7 +79,6 @@ FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
 DATABASE_INFO = {
-    # PNS & KASUBBAG
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
@@ -113,7 +121,7 @@ MASTER_PPPK = [k for k, v in DATABASE_INFO.items() if v[4] == "PPPK"]
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
     
-    # AMBIL GPS LANGSUNG
+    # AMBIL GPS
     loc = get_geolocation()
     jarak = 999999
     is_in_range = False
@@ -141,14 +149,12 @@ def pop_update(nama):
         else:
             st.error("🚫 Tombol Kirim Terkunci. Anda berada di luar wilayah kantor!")
     else:
-        # Lapkin tidak dikunci GPS (Bisa isi laporan di rumah)
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja:")
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             requests.post(SCRIPT_LAPKIN, json=payload); st.success("Tersimpan!"); time.sleep(1); st.rerun()
 
-# --- REKAP & DOWNLOAD (Tetap Aman) ---
 @st.dialog("Advanced Rekap Excel", width="large")
 def pop_rekap():
     st.markdown("### 📊 FILTER REKAP LENGKAP")
@@ -163,15 +169,18 @@ def pop_rekap():
         else: opts = ["-- Semua Pegawai --"] + list(DATABASE_INFO.keys())
         r_nama = st.selectbox("Pilih Nama Spesifik:", opts)
 
-    if st.button("📊 PROSES DATA", use_container_width=True):
-        def get_clean_df(url):
-            try:
-                r = requests.get(f"{url}&cb={random.random()}", timeout=15)
-                return pd.read_csv(StringIO(r.text)).dropna(how='all')
-            except: return None
+    if st.button("📊 PROSES & DOWNLOAD EXCEL", use_container_width=True):
         df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
         if df1 is not None and df2 is not None:
             df = pd.concat([df1, df2], ignore_index=True)
+            df['ts_str'] = df.iloc[:, 0].astype(str)
+            df = df[df['ts_str'].str.contains(str(r_tahun))]
+            if r_bulan != "SEPANJANG TAHUN":
+                m_idx = f"{LIST_BULAN.index(r_bulan)+1:02d}"
+                df = df[df['ts_str'].str.contains(f"/{m_idx}/") | df['ts_str'].str.contains(f"-{m_idx}-")]
+            if "Semua" not in r_nama: df = df[df.iloc[:, 1] == r_nama]
+            elif r_kat == "PNS": df = df[df.iloc[:, 1].isin(MASTER_PNS)]
+            elif r_kat == "PPPK": df = df[df.iloc[:, 1].isin(MASTER_PPPK)]
             out = BytesIO()
             with pd.ExcelWriter(out, engine='openpyxl') as writer: df.to_excel(writer, index=False)
             st.download_button("📥 DOWNLOAD REKAP", out.getvalue(), f"REKAP_{r_kat}_{r_bulan}.xlsx", use_container_width=True)
@@ -181,11 +190,6 @@ def pop_cetak():
     c_b = st.selectbox("Pilih Bulan Laporan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Nama Pegawai:", list(DATABASE_INFO.keys()))
     if st.button("📊 GENERATE LAPKIN", use_container_width=True):
-        def get_clean_df(url):
-            try:
-                r = requests.get(f"{url}&cb={random.random()}", timeout=15)
-                return pd.read_csv(StringIO(r.text)).dropna(how='all')
-            except: return None
         df = get_clean_df(URL_LAPKIN)
         if df is not None:
             df_f = df[(df.iloc[:, 1] == c_n)].copy()
@@ -232,16 +236,10 @@ with mid:
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
 
-def get_clean_df_main(url):
-    try:
-        r = requests.get(f"{url}&cb={random.random()}", timeout=15)
-        return pd.read_csv(StringIO(r.text)).dropna(how='all')
-    except: return None
-
 def render_ui(urls, masters, tgl_target, tab_id):
     all_dfs = []
     for u in urls:
-        df_t = get_clean_df_main(u)
+        df_t = get_clean_df(u)
         if df_t is not None: all_dfs.append(df_t)
     if not all_dfs: return
     df = pd.concat(all_dfs, ignore_index=True)
