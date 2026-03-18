@@ -10,7 +10,30 @@ URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
 URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbzJ_gHm4clqncelQOKDdHR6UK9wiTXgMNSqLMQnBBNVCg4F-Arnch062h6Xaxo3Excd/exec"
 
-# --- 2. CSS CUSTOM ---
+# --- 2. LOGIKA PENENTUAN PENANDATANGAN (APPROVAL) ---
+def get_approver(user_nama):
+    """Logika menentukan siapa yang tanda tangan di bawah laporan"""
+    info = DATABASE_INFO[user_nama]
+    jabatan = info[1]
+    
+    # Ambil Nama Sekretaris sebagai otoritas tertinggi
+    sekretaris = "Suwanto, SH., MH."
+    nip_sekretaris = DATABASE_INFO[sekretaris][0]
+    
+    # 1. Jika Sekretaris atau Kasubbag -> Tanda Tangan Sekretaris
+    if "Sekretaris" in jabatan or "Kepala Sub" in jabatan:
+        return sekretaris, nip_sekretaris, "Sekretaris"
+    
+    # 2. Jika Staf -> Tanda Tangan Kasubbag sesuai bagiannya
+    if "Teknis" in jabatan: kasubbag = "Wawan Setiawan, SH"
+    elif "Keuangan" in jabatan or "Logistik" in jabatan: kasubbag = "Ineke Setiyaningsih, S.Sos"
+    elif "Hukum" in jabatan or "SDM" in jabatan: kasubbag = "Farah Agustina Setiawati, SH"
+    elif "Perencanaan" in jabatan or "Data" in jabatan: kasubbag = "Rusma Ariati, SE"
+    else: kasubbag = sekretaris # Fallback jika bagian tidak spesifik
+    
+    return kasubbag, DATABASE_INFO[kasubbag][0], DATABASE_INFO[kasubbag][1]
+
+# --- 3. CSS CUSTOM ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -20,7 +43,7 @@ def inject_custom_css():
         </style>
     """, unsafe_allow_html=True)
 
-# --- 3. POP-UP MENU MANDIRI (ABSEN & LAPKIN) ---
+# --- 4. POP-UP MENU MANDIRI (ABSEN, LAPKIN, & DOWNLOAD) ---
 @st.dialog("📋 AKSES MANDIRI & LAPKIN")
 def pop_menu_mandiri(user):
     info = DATABASE_INFO[user['nama']]
@@ -49,31 +72,22 @@ def pop_menu_mandiri(user):
 
     st.markdown("---")
     
-    # --- SEKSI LAPKIN (DENGAN DROPDOWN STATUS) ---
+    # --- SEKSI LAPKIN ---
     st.subheader("📝 Laporan Kinerja (LAPKIN)")
-    
-    status_lapkin = st.selectbox(
-        "Status Kehadiran Lapkin:",
-        ["HADIR", "IZIN", "TL", "CUTI"],
-        index=0
-    )
-    
+    status_lapkin = st.selectbox("Status Kehadiran Lapkin:", ["HADIR", "IZIN", "TL", "CUTI"], index=0)
     uraian = st.text_area("Uraian Kegiatan Hari Ini:", placeholder="Contoh: Mengelola data logistik pemilihan umum...")
     
     if st.button("KIRIM LAPORAN KINERJA", use_container_width=True):
         if uraian.strip():
             payload_lapkin = {
-                "nama": user['nama'], 
-                "nip": nip, 
-                "jabatan": jabatan, 
-                "status": status_lapkin,
-                "uraian": uraian
+                "nama": user['nama'], "nip": nip, "jabatan": jabatan, 
+                "status": status_lapkin, "uraian": uraian
             }
             with st.spinner("Mengirim laporan ke Google Sheets..."):
                 try:
                     res = requests.post(URL_API_LAPKIN, json=payload_lapkin, timeout=10)
                     if "Success" in res.text:
-                        st.success(f"✅ Laporan Berhasil Dikirim (Status: {status_lapkin})!")
+                        st.success(f"✅ Laporan Berhasil Dikirim!")
                         st.balloons()
                     else:
                         st.error(f"Gagal mengirim: {res.text}")
@@ -82,7 +96,29 @@ def pop_menu_mandiri(user):
         else:
             st.warning("Silakan isi uraian kegiatan terlebih dahulu!")
 
-# --- 4. TAMPILAN DASHBOARD ---
+    st.markdown("---")
+
+    # --- SEKSI UNDUH LAPORAN (FITUR BARU) ---
+    st.subheader("📥 Unduh Laporan Bulanan")
+    st.caption("Generate dokumen Excel laporan bulanan sesuai periode.")
+    c1, c2 = st.columns(2)
+    with c1:
+        bln_pilih = st.selectbox("Pilih Bulan:", 
+            ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+             "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
+    with c2:
+        thn_pilih = st.selectbox("Pilih Tahun:", [2025, 2026], index=1)
+
+    if st.button("PROSES LAPORAN (EXCEL)", use_container_width=True):
+        with st.spinner("Menyiapkan dokumen..."):
+            # Panggil logika penandatangan otomatis
+            ttd_nama, ttd_nip, ttd_jabatan = get_approver(user['nama'])
+            
+            st.info(f"Penandatangan Dokumen: **{ttd_nama}**\n\nJabatan: {ttd_jabatan}")
+            # Placeholder untuk fungsi download selanjutnya
+            st.warning("Sistem sedang menghubungkan data ke template Excel.")
+
+# --- 5. TAMPILAN DASHBOARD ---
 def render_monitoring_list(list_nama, data_log):
     if not list_nama:
         st.caption("Nama tidak ditemukan...")
