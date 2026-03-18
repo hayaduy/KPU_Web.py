@@ -1,7 +1,7 @@
 import streamlit as st
 from database import DATABASE_INFO
 # PERBAIKAN: Ubah 'dashboards' menjadi 'dashboard' agar sesuai nama file
-from dashboard import show_admin, show_bendahara, show_pegawai
+from dashboards import show_admin, show_bendahara, show_pegawai
 from streamlit_cookies_manager import EncryptedCookieManager
 import os
 
