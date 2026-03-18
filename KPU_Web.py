@@ -15,8 +15,8 @@ st.set_page_config(page_title="KPU HSS Presence Hub v93.0", layout="wide", page_
 wita_tz = pytz.timezone('Asia/Makassar')
 
 # KOORDINAT KANTOR KPU KAB. HSS
-LAT_KANTOR = -2.775087
-LON_KANTOR = 115.228639
+LAT_KANTOR = -2.78085462958455
+LON_KANTOR = 115.25896733648922
 RADIUS_METER = 100 
 
 LIBUR_DAN_CUTI_2026 = {
