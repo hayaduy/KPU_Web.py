@@ -10,9 +10,9 @@ from core_logic import process_attendance, URL_PNS, URL_PPPK
 # --- 1. KONFIGURASI URL ---
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
-URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbJ_gHm4clqncelQOKDdHR6UK9wiTXgMNSqLMQnBBNVCg4F-Arnch062h6Xaxo3Excd/exec"
+URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbzJ_gHm4clqncelQOKDdHR6UK9wiTXgMNSqLMQnBBNVCg4F-Arnch062h6Xaxo3Excd/exec"
 
-# --- 2. FUNGSI AMBIL DATA LAPKIN ---
+# --- 2. FUNGSI AMBIL DATA LAPKIN (SINKRONISASI TANGGAL & NAMA) ---
 def get_lapkin_data(nama_user, bulan_nama, tahun):
     try:
         response = requests.get(URL_API_LAPKIN, timeout=15)
@@ -25,29 +25,36 @@ def get_lapkin_data(nama_user, bulan_nama, tahun):
             
             filtered_data = []
             for item in data_json:
-                # Filter Nama
-                if str(item.get('nama', '')).strip().lower() == str(nama_user).strip().lower():
-                    # Parsing Tanggal dari Timestamp
-                    raw_date = str(item.get('tanggal', ''))
+                # Normalisasi Nama: Hapus spasi & jadikan huruf kecil semua
+                nama_di_sheet = str(item.get('nama', '')).strip().lower()
+                nama_cari = str(nama_user).strip().lower()
+                
+                if nama_di_sheet == nama_cari:
+                    # Ambil Timestamp (Contoh: 19/05/2025 10:44:46)
+                    raw_ts = str(item.get('tanggal', ''))
                     dt_obj = None
-                    for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S"]:
+                    
+                    # Coba berbagai format (Prioritas format DD/MM/YYYY seperti di gambar Abang)
+                    for fmt in ["%d/%m/%Y %H:%M:%S", "%d/%m/%Y", "%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"]:
                         try:
-                            dt_obj = datetime.strptime(raw_date[:10], fmt)
+                            dt_obj = datetime.strptime(raw_ts.split(' ')[0] if ' ' in raw_ts else raw_ts, fmt.split(' ')[0])
                             break
                         except: continue
                     
                     if dt_obj and dt_obj.month == bulan_angka and dt_obj.year == tahun:
-                        # Kita ambil 'output' sebagai data utama
-                        hasil_kerja = item.get('output', item.get('hasil', '-'))
+                        # Ambil Hasil Kerja (Cek kunci 'output' atau 'hasil' atau 'hasil_kerja')
+                        hk = item.get('output', item.get('hasil', item.get('hasil_kerja', '-')))
                         filtered_data.append({
                             "tgl": dt_obj.day,
                             "hari_tgl": dt_obj.strftime("%d/%m/%Y"),
-                            "uraian": f"Melaksanakan tugas harian: {hasil_kerja}", # Uraian dibuat otomatis dari hasil kerja
-                            "output": hasil_kerja
+                            "uraian": f"Melaksanakan tugas: {hk}",
+                            "output": hk
                         })
             
+            # Urutkan berdasarkan tanggal (Day)
             return sorted(filtered_data, key=lambda x: x['tgl'])
-    except:
+    except Exception as e:
+        print(f"Debug Error: {e}")
         return []
     return []
 
@@ -57,7 +64,7 @@ def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
     info_user = DATABASE_INFO[user_nama]
     info_ttd = DATABASE_INFO[ttd_nama]
     
-    # Tarik data asli dari Lapkin (berdasarkan Timestamp & Output)
+    # Ambil data dari filter terbaru
     data_lapkin = get_lapkin_data(user_nama, bulan_nama, tahun)
     
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -88,20 +95,21 @@ def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
         # ISI DATA
         row = 10
         if not data_lapkin:
-            worksheet.merge_range(row, 0, row, 4, "Data tidak ditemukan di Spreadsheet Lapkin", f_center)
+            worksheet.merge_range(row, 0, row, 4, f"Data {user_nama} tidak ditemukan di GSheet Lapkin", f_center)
             row += 1
         else:
             for i, d in enumerate(data_lapkin):
                 worksheet.write(row, 0, i + 1, f_center)
                 worksheet.write(row, 1, d['hari_tgl'], f_center)
-                worksheet.write(row, 2, d['uraian'], f_border) # Otomatis
-                worksheet.write(row, 3, d['output'], f_border) # Dari kolom Output
+                worksheet.write(row, 2, d['uraian'], f_border)
+                worksheet.write(row, 3, d['output'], f_border)
                 worksheet.write(row, 4, "Hadir", f_center)
                 row += 1
         
         # Tanda Tangan
         row_ttd = row + 3
-        last_day = calendar.monthrange(tahun, list(["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]).index(bulan_nama)+1)[1]
+        list_bln = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        last_day = calendar.monthrange(tahun, list_bln.index(bulan_nama)+1)[1]
         worksheet.write(row_ttd, 3, f"Kandangan, {last_day} {bulan_nama} {tahun}")
         worksheet.write(row_ttd+1, 3, "Atasan Langsung,")
         worksheet.write(row_ttd+5, 3, ttd_nama, f_bold)
@@ -150,18 +158,16 @@ def pop_menu_mandiri(user):
 
     with tab_lap:
         stat = st.selectbox("Status:", ["HADIR", "IZIN", "TL", "CUTI"])
-        # Uraian dihilangkan sesuai permintaan
         hasil = st.text_input("Hasil Kerja / Output:") 
         if st.button("KIRIM LAPKIN", use_container_width=True):
             if hasil:
-                # Payload hanya mengirim data yang ada di form lapkin gsheets
                 payload = {"nama": user['nama'], "nip": nip, "jabatan": jabatan, "status": stat, "output": hasil}
                 with st.spinner("Mengirim..."):
                     try:
                         requests.post(URL_API_LAPKIN, json=payload, timeout=10)
-                        st.success("Tersimpan!")
+                        st.success("Berhasil dikirim ke GSheet!")
                     except: st.error("Gagal simpan.")
-            else: st.warning("Mohon isi hasil kerja!")
+            else: st.warning("Isi hasil kerja!")
 
     with tab_dl:
         bln = st.selectbox("Pilih Bulan Laporan:", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
@@ -169,11 +175,11 @@ def pop_menu_mandiri(user):
         list_atasan, def_idx = get_approver_options(user['nama'])
         ttd_pilih = st.selectbox("Pilih Penandatangan:", list_atasan, index=def_idx)
         
-        if st.button("🔍 SIAPKAN FILE EXCEL", use_container_width=True):
-            with st.spinner("Menarik data dari Spreadsheet..."):
+        if st.button("🔍 PROSES & DOWNLOAD", use_container_width=True):
+            with st.spinner(f"Mencari data {user['nama']}..."):
                 excel_data = create_excel_file(user['nama'], bln, thn, ttd_pilih)
                 st.download_button(
-                    label="📥 DOWNLOAD SEKARANG",
+                    label="📥 KLIK DISINI UNTUK DOWNLOAD",
                     data=excel_data,
                     file_name=f"LAPORAN_{user['nama']}_{bln}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -181,7 +187,7 @@ def pop_menu_mandiri(user):
                     type="primary"
                 )
 
-# --- 7. TAMPILAN DASHBOARD ---
+# --- 7. DASHBOARD LOGIC ---
 def show_pegawai(user):
     inject_custom_css()
     st.subheader(f"Halo, {user['nama']} 👋")
