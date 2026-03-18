@@ -4,3 +4,4 @@ requests
 openpyxl
 streamlit-autorefresh
 pytz
+streamlit-js-eval
