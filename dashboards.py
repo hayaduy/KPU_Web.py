@@ -36,58 +36,56 @@ def pop_menu_mandiri(user):
         target_url = URL_API_PNS if status_peg == "PNS" else URL_API_PPPK
         payload_absen = {"nama": user['nama'], "nip": nip, "jabatan": jabatan, "status": status_peg}
         
-        with st.spinner("Mengirim data absen..."):
+        with st.spinner("Mengirim data presensi..."):
             try:
                 res = requests.post(target_url, json=payload_absen, timeout=10)
                 if "Success" in res.text:
-                    st.success(f"✅ Absen Berhasil!")
+                    st.success(f"✅ Presensi Berhasil!")
                     st.balloons()
                 else:
                     st.error(f"Gagal: {res.text}")
             except Exception as e:
-                st.error(f"Ralat Sambungan: {e}")
+                st.error(f"Kesalahan Koneksi: {e}")
 
     st.markdown("---")
     
     # --- SEKSI LAPKIN (DENGAN DROPDOWN STATUS) ---
     st.subheader("📝 Laporan Kinerja (LAPKIN)")
     
-    # Tambahan Dropdown Status sesuai permintaan
     status_lapkin = st.selectbox(
         "Status Kehadiran Lapkin:",
         ["HADIR", "IZIN", "TL", "CUTI"],
         index=0
     )
     
-    uraian = st.text_area("Huraian Aktiviti Hari Ini:", placeholder="Contoh: Mengemaskini data logistik pilihan raya...")
+    uraian = st.text_area("Uraian Kegiatan Hari Ini:", placeholder="Contoh: Mengelola data logistik pemilihan umum...")
     
-    if st.button("HANTAR LAPORAN KINERJA", use_container_width=True):
+    if st.button("KIRIM LAPORAN KINERJA", use_container_width=True):
         if uraian.strip():
-            # Data JSON dikirim ke Apps Script
             payload_lapkin = {
                 "nama": user['nama'], 
                 "nip": nip, 
                 "jabatan": jabatan, 
-                "status": status_lapkin, # Status dari dropdown dikirim di sini
+                "status": status_lapkin,
                 "uraian": uraian
             }
-            with st.spinner("Menghantar laporan ke Google Sheets..."):
+            with st.spinner("Mengirim laporan ke Google Sheets..."):
                 try:
                     res = requests.post(URL_API_LAPKIN, json=payload_lapkin, timeout=10)
                     if "Success" in res.text:
                         st.success(f"✅ Laporan Berhasil Dikirim (Status: {status_lapkin})!")
                         st.balloons()
                     else:
-                        st.error(f"Gagal menghantar: {res.text}")
+                        st.error(f"Gagal mengirim: {res.text}")
                 except Exception as e:
-                    st.error(f"Ralat Sambungan: {e}")
+                    st.error(f"Kesalahan Koneksi: {e}")
         else:
-            st.warning("Sila isi huraian aktiviti terlebih dahulu!")
+            st.warning("Silakan isi uraian kegiatan terlebih dahulu!")
 
-# --- 4. TAMPILAN DASHBOARD (SAMA SEPERTI SEBELUMNYA) ---
+# --- 4. TAMPILAN DASHBOARD ---
 def render_monitoring_list(list_nama, data_log):
     if not list_nama:
-        st.caption("Nama tidak dijumpai...")
+        st.caption("Nama tidak ditemukan...")
         return
     for p in list_nama:
         d = data_log.get(p, {"m": "--:--", "p": "--:--", "k": "ALPA"})
@@ -102,28 +100,28 @@ def render_monitoring_list(list_nama, data_log):
         """, unsafe_allow_html=True)
 
 def show_pegawai(user):
-    st.markdown("### 📱 Hub Pegawai")
+    st.markdown("### 📱 Menu Pegawai")
     if st.button("📂 BUKA MENU MANDIRI", use_container_width=True, type="primary"):
         pop_menu_mandiri(user)
 
 def show_admin(user, database):
     inject_custom_css()
-    st.markdown("### 🏛️ Hub Administrator")
+    st.markdown("### 🏛️ Menu Administrator")
     if st.button("📂 BUKA MENU MANDIRI", use_container_width=True, type="primary"):
         pop_menu_mandiri(user)
     st.divider()
-    tab_mon, tab_down, tab_set = st.tabs(["🔍 MONITORING", "📥 DOWNLOAD", "🔑 SETTINGS"])
+    tab_mon, tab_down, tab_set = st.tabs(["🔍 MONITORING", "📥 UNDUH DATA", "🔑 PENGATURAN"])
     with tab_mon:
         c1, c2 = st.columns([1, 1])
-        tgl = c1.date_input("Tarikh Pantau:", datetime.now())
+        tgl = c1.date_input("Tanggal Pemantauan:", datetime.now())
         search = c2.text_input("🔍 Cari Nama Pegawai:")
         data_log = process_attendance([URL_PNS, URL_PPPK], list(database.keys()), tgl)
         render_monitoring_list([n for n in list(database.keys()) if search.lower() in n.lower()], data_log)
 
 def show_bendahara(user):
     inject_custom_css()
-    st.markdown("### 💰 Hub Bendahara")
+    st.markdown("### 💰 Menu Bendahara")
     if st.button("📂 BUKA MENU MANDIRI", use_container_width=True, type="primary"):
         pop_menu_mandiri(user)
     st.divider()
-    st.button("📥 Muat Turun Rekap Absen Kantor", use_container_width=True)
+    st.button("📥 Unduh Rekap Presensi Kantor", use_container_width=True)
