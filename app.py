@@ -25,8 +25,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- LOGIN SYSTEM ---
-if 'logged_in' not in st.session_state: st.session_state.logged_in = False
-
 if not st.session_state.logged_in:
     st.title("🏛️ LOGIN KPU HSS")
     nip_in = st.text_input("Masukkan NIP")
@@ -35,13 +33,12 @@ if not st.session_state.logged_in:
         match = next((k for k, v in DATABASE_INFO.items() if nip_in.replace(" ","") in v[0].replace(" ","")), None)
         if match and pass_in == "kpuhss2026":
             st.session_state.logged_in = True
-            # Ganti baris 38 yang error dengan kode ini:
-user_data = DATABASE_INFO[match]
-role_user = user_data[7] if len(user_data) > 7 else "Pegawai" # Default ke Pegawai jika index [7] tidak ada
-
-st.session_state.user = {"nama": match, "role": role_user}
+            u_data = DATABASE_INFO[match]
+            u_role = u_data[7] if len(u_data) > 7 else "Pegawai"
+            st.session_state.user = {"nama": match, "role": u_role}
             st.rerun()
-else:
+        else:
+            st.error("NIP atau Password Salah")
     # Sidebar Logout
     if st.sidebar.button("🚪 LOGOUT"):
         st.session_state.logged_in = False
