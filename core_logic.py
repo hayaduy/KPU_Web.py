@@ -12,10 +12,13 @@ URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKo
 def clean_name_for_match(name):
     """Menghapus gelar dan karakter khusus agar pencarian akurat"""
     if not name: return ""
-    # Hapus gelar umum (S.Sos, SH, MH, SE, dsb) dan titik koma
     n = str(name).lower()
-    n = re.sub(r'\,.*', '', n) # Hapus apapun setelah koma (gelar)
-    n = re.sub(r'\b(h|sh|mh|se|s\.sos|st|mm|spd)\b', '', n) # Hapus gelar spesifik
+    # 1. Hapus gelar setelah koma (contoh: , SH., MH.)
+    n = re.sub(r'\,.*', '', n) 
+    # 2. Hapus gelar depan dan belakang yang umum
+    for g dalam ['h.', 'hj.', 'sh', 'mh', 'se', 's.sos', 'st', 'mm', 'spd', 's.kom', 's.ap']:
+        n = n.replace(g, "")
+    # 3. Hapus spasi dan titik sisa
     return "".join(n.split()).replace(".", "")
 
 # --- 1. LOGIKA ABSENSI ---
@@ -33,7 +36,6 @@ def process_attendance(urls, daftar_nama, tgl_pilihan):
                         ts = str(row.iloc[0])
                         if str_tgl_target in ts:
                             nama_sheet = row.iloc[1]
-                            # Cocokkan nama dengan versi bersih
                             for nama_db in daftar_nama:
                                 if clean_name_for_match(nama_sheet) == clean_name_for_match(nama_db):
                                     try: jam = ts.split(" ")[1][:5]
@@ -48,6 +50,7 @@ def process_attendance(urls, daftar_nama, tgl_pilihan):
 # --- 2. LOGIKA AMBIL DATA LAPKIN ---
 def get_lapkin_data(URL_API_LAPKIN, LIST_BULAN, nama_user, bulan_nama, tahun):
     try:
+        # Tambahkan timestamp agar data tidak kena cache browser
         response = requests.get(f"{URL_API_LAPKIN}?v={datetime.now().timestamp()}", timeout=15)
         if response.status_code == 200:
             data_json = response.json()
@@ -60,7 +63,6 @@ def get_lapkin_data(URL_API_LAPKIN, LIST_BULAN, nama_user, bulan_nama, tahun):
                 if val_nama == target_clean:
                     val_tgl = str(item.get('tanggal', ''))
                     dt_obj = None
-                    # Coba parsing tanggal
                     for fmt in ["%d/%m/%Y", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d"]:
                         try:
                             clean_tgl = val_tgl.split(' ')[0]
@@ -87,13 +89,13 @@ def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, t
     # info[0]=NIP, [1]=Jabatan, [2]=Unit, [3]=Subbag, [4]=Status, [5]=Pass, [6]=Role
     
     atasan_nama = ttd_pilih
-    # Logika Jabatan Atasan
     if atasan_nama == "Suwanto, SH., MH.": 
         j_atasan = "Sekretaris KPU Kab. Hulu Sungai Selatan"
     else:
         info_atasan = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])
         j_raw = info_atasan[1]
         j_atasan = j_raw
+        # Mapping Jabatan Kasubbag agar lebih rapi di Excel
         if any(x in j_raw for x in ["Kasubbag", "TP-Hupmas", "Teknis"]):
             if "TP-Hupmas" in j_raw or "Teknis" in j_raw: j_atasan = "Kepala Sub Bagian Teknis Penyelenggaraan Pemilu,\nPartisipasi dan Hubungan Masyarakat"
             elif "Keuangan" in j_raw: j_atasan = "Kepala Sub Bagian Keuangan,\nUmum dan Logistik"
@@ -114,20 +116,22 @@ def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, t
         f_center = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'top'})
         f_table_h = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'bg_color': '#D9D9D9'})
         
-        # Header
+        # Header Dokumen
         worksheet.merge_range('A1:E1', 'LAPORAN BULANAN', f_h)
         worksheet.merge_range('A2:E2', 'SEKRETARIAT KPU KABUPATEN HULU SUNGAI SELATAN', f_h)
         
+        # Profil Pegawai
         worksheet.write('A4', 'Bulan', f_b); worksheet.write('B4', f': {bulan_nama}')
         worksheet.write('A5', 'Nama', f_b); worksheet.write('B5', f': {user_nama}')
-        # INDEX DIPERBAIKI DISINI AGAR TIDAK MUNCUL PASSWORD
+        
+        # PERBAIKAN: Gunakan info[1], [2], dan [3] untuk Jabatan, Unit, Subbag
         worksheet.write('A6', 'Jabatan', f_b);    worksheet.write('B6', f': {info[1]}')
         worksheet.write('A7', 'Unit Kerja', f_b); worksheet.write('B7', f': {info[2]}')
         worksheet.write('A8', 'Sub Bagian', f_b); worksheet.write('B8', f': {info[3]}')
-        worksheet.write('A10', 'Hasil Kinerja', f_b); worksheet.write('B10', ':')
         
         headers = ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja / Output", "Keterangan"]
-        for i, h in enumerate(headers): worksheet.write(10, i, h, f_table_h)
+        for i, h in enumerate(headers): 
+            worksheet.write(10, i, h, f_table_h)
         
         row = 11
         if not data_lapkin:
@@ -137,11 +141,12 @@ def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, t
             for i, d in enumerate(data_lapkin):
                 worksheet.write(row, 0, i + 1, f_center)
                 worksheet.write(row, 1, d['hari_tgl'], f_center)
-                worksheet.write(row, 2, "", f_border)
-                worksheet.write(row, 3, d['hasil'], f_border)
+                worksheet.write(row, 2, "", f_border) # Uraian (Kosongkan/Isi manual jika perlu)
+                worksheet.write(row, 3, d['hasil'], f_border) # Output dari Lapkin
                 worksheet.write(row, 4, "Hadir", f_center)
                 row += 1
             
+        # Tanda Tangan
         row_f = row + 2
         worksheet.write(row_f, 3, f"Kandangan, {tgl_ttd}")
         worksheet.write(row_f+1, 3, "Atasan Langsung,")
@@ -151,6 +156,10 @@ def create_excel_file(DATABASE_INFO, LIST_BULAN, user_nama, bulan_nama, tahun, t
         nip_ttd = DATABASE_INFO.get(atasan_nama, ["-"])[0]
         worksheet.write(row_f+9, 3, f"NIP. {nip_ttd}")
         
-        worksheet.set_column('A:A', 4); worksheet.set_column('B:B', 18); worksheet.set_column('C:D', 40)
+        # Set Lebar Kolom
+        worksheet.set_column('A:A', 4)
+        worksheet.set_column('B:B', 18)
+        worksheet.set_column('C:D', 40)
+        worksheet.set_column('E:E', 12)
 
     return output.getvalue()
