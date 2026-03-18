@@ -12,29 +12,31 @@ URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
 URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbxhhNvz5thj5PjA5W19Te02c2E3zueN-QEfNf9nF5El0rfToXK9A8qjNZVpiqnqLyLD/exec"
 
-# --- 2. FUNGSI AMBIL DATA LAPKIN (PERBAIKAN LOGIKA TANGGAL & KOLOM) ---
+LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+              "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+
+# --- 2. FUNGSI AMBIL DATA LAPKIN (SPESIFIK KOLOM F) ---
 def get_lapkin_data(nama_user, bulan_nama, tahun):
     try:
-        # Tambahkan nocache agar data selalu paling baru
+        # Tambahkan v=... supaya tidak cache
         response = requests.get(f"{URL_API_LAPKIN}?v={datetime.now().timestamp()}", timeout=15)
         
         if response.status_code == 200:
             data_json = response.json()
-            list_bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
-                          "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-            bulan_angka = list_bulan.index(bulan_nama) + 1
+            bulan_angka = LIST_BULAN.index(bulan_nama) + 1
             
             filtered_data = []
+            # Normalisasi nama target untuk perbandingan yang akurat
+            target_clean = str(nama_user).strip().lower().replace(",", "").replace(".", "")
+
             for item in data_json:
-                # Normalisasi Nama: hapus spasi dan huruf kecil semua
-                val_nama = str(item.get('nama', '')).strip().lower()
+                val_nama = str(item.get('nama', '')).strip().lower().replace(",", "").replace(".", "")
                 
-                if val_nama == str(nama_user).strip().lower():
-                    # Normalisasi Tanggal agar tidak error saat format berbeda-beda
+                if val_nama == target_clean:
                     val_tgl = str(item.get('tanggal', ''))
                     dt_obj = None
-                    # Cek format tanggal umum
-                    for fmt in ["%d/%m/%Y", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d", "%m/%d/%Y"]:
+                    # Coba parsing tanggal dari berbagai kemungkinan format GSheet
+                    for fmt in ["%d/%m/%Y", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d"]:
                         try:
                             clean_tgl = val_tgl.split(' ')[0] if ' ' in val_tgl else val_tgl
                             dt_obj = datetime.strptime(clean_tgl, fmt)
@@ -42,8 +44,7 @@ def get_lapkin_data(nama_user, bulan_nama, tahun):
                         except: continue
                     
                     if dt_obj and dt_obj.month == bulan_angka and dt_obj.year == tahun:
-                        # AMBIL HASIL KERJA (Dari Kolom F / Key 'uraian' di JSON)
-                        # Kita ambil 'uraian' karena doPost Abang mengirim hasil kerja ke kolom F lewat key ini
+                        # 'uraian' di JSON Apps Script haruslah data dari KOLOM F GSheet
                         hasil_kerja = item.get('uraian', '-')
                         
                         filtered_data.append({
@@ -52,7 +53,6 @@ def get_lapkin_data(nama_user, bulan_nama, tahun):
                             "hasil": hasil_kerja
                         })
             
-            # Urutkan berdasarkan tanggal agar rapi di Excel
             return sorted(filtered_data, key=lambda x: x['tgl'])
     except:
         return []
@@ -69,7 +69,7 @@ def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
         workbook = writer.book
         worksheet = workbook.add_worksheet('Laporan')
         
-        # Formats
+        # Styles
         f_h = workbook.add_format({'bold': True, 'align': 'center', 'font_size': 12})
         f_b = workbook.add_format({'bold': True})
         f_border = workbook.add_format({'border': 1, 'text_wrap': True, 'valign': 'top'})
@@ -84,12 +84,12 @@ def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
         worksheet.write('A5', 'Nama', f_b); worksheet.write('B5', f': {user_nama}')
         worksheet.write('A6', 'Jabatan', f_b); worksheet.write('B6', f': {info_user[1]}')
         
-        # Table Headers (A9 s/d E9)
+        # Table Headers
         headers = ["No", "Hari / Tanggal", "Uraian Kegiatan", "Hasil Kerja / Output", "Keterangan"]
         for i, h in enumerate(headers):
             worksheet.write(9, i, h, f_table_h)
         
-        # Isi Data (Body)
+        # Isi Data
         row = 10
         if not data_lapkin:
             worksheet.merge_range(row, 0, row, 4, "Data Belum Tersedia", f_center)
@@ -98,22 +98,21 @@ def create_excel_file(user_nama, bulan_nama, tahun, ttd_nama):
             for i, d in enumerate(data_lapkin):
                 worksheet.write(row, 0, i + 1, f_center)
                 worksheet.write(row, 1, d['hari_tgl'], f_center)
-                worksheet.write(row, 2, "", f_border)       # Uraian dikosongkan sesuai permintaan
-                worksheet.write(row, 3, d['hasil'], f_border) # Mengisi Hasil Kerja dari Lapkin
+                # PERBAIKAN: Uraian Kosong (""), Hasil Kerja dari d['hasil']
+                worksheet.write(row, 2, "", f_border) 
+                worksheet.write(row, 3, d['hasil'], f_border) 
                 worksheet.write(row, 4, "Hadir", f_center)
                 row += 1
         
         # Area Tanda Tangan
         row_ttd = row + 3
-        list_bln = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-        last_day = calendar.monthrange(tahun, list_bln.index(bulan_nama)+1)[1]
+        last_day = calendar.monthrange(tahun, LIST_BULAN.index(bulan_nama)+1)[1]
         
         worksheet.write(row_ttd, 3, f"Kandangan, {last_day} {bulan_nama} {tahun}")
         worksheet.write(row_ttd+1, 3, "Atasan Langsung,")
         worksheet.write(row_ttd+5, 3, ttd_nama, f_b)
         worksheet.write(row_ttd+6, 3, f"NIP. {info_ttd[0]}")
         
-        # Ukuran Kolom
         worksheet.set_column('A:A', 4)
         worksheet.set_column('B:B', 15)
         worksheet.set_column('C:D', 40)
@@ -142,7 +141,7 @@ def pop_menu_mandiri(user):
     tab_abs, tab_lap, tab_dl = st.tabs(["🚀 ABSEN", "📝 LAPKIN", "📥 DOWNLOAD"])
     
     with tab_abs:
-        if st.button("KLIK UNTUK ABSEN (HADIR)", key="btn_abs_real", use_container_width=True, type="primary"):
+        if st.button("KLIK UNTUK ABSEN (HADIR)", use_container_width=True, type="primary"):
             target_url = URL_API_PNS if info[4] == "PNS" else URL_API_PPPK
             payload = {"nama": user['nama'], "nip": info[0], "jabatan": info[1], "status": info[4]}
             try:
@@ -153,7 +152,7 @@ def pop_menu_mandiri(user):
     with tab_lap:
         stat = st.selectbox("Status Kehadiran:", ["HADIR", "IZIN", "TL", "CUTI"])
         hasil = st.text_input("Hasil Kerja / Output Hari Ini:") 
-        if st.button("KIRIM DATA LAPKIN", key="btn_lap_real", use_container_width=True):
+        if st.button("KIRIM DATA LAPKIN", use_container_width=True):
             if hasil:
                 payload = {"nama": user['nama'], "nip": info[0], "jabatan": info[1], "status": stat, "uraian": hasil}
                 try:
@@ -163,23 +162,23 @@ def pop_menu_mandiri(user):
             else: st.warning("Mohon isi hasil kerja!")
 
     with tab_dl:
-        bln = st.selectbox("Pilih Bulan:", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
+        bln = st.selectbox("Pilih Bulan:", LIST_BULAN)
         thn = st.selectbox("Tahun:", [2025, 2026], index=1)
         list_atasan, def_idx = get_approver_options(user['nama'])
         ttd_pilih = st.selectbox("Penandatangan:", list_atasan, index=def_idx)
         
-        if st.button("🔍 PROSES EXCEL", key="btn_dl_real", use_container_width=True):
+        if st.button("🔍 PROSES EXCEL", use_container_width=True):
             with st.spinner("Mengambil data..."):
                 excel_data = create_excel_file(user['nama'], bln, thn, ttd_pilih)
-                st.download_button("📥 DOWNLOAD FILE SEKARANG", excel_data, f"LAPKIN_{user['nama']}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button("📥 DOWNLOAD FILE SEKARANG", excel_data, f"LAPORAN_{user['nama']}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
 # --- 6. DASHBOARD VIEWS ---
 def show_pegawai(user):
     inject_custom_css()
     st.subheader(f"Halo, {user['nama']} 👋")
     c1, c2 = st.columns(2)
-    if c1.button("🚀 ABSEN / HADIR", key="main_abs", use_container_width=True, type="primary"): pop_menu_mandiri(user)
-    if c2.button("📝 ISI LAPKIN", key="main_lap", use_container_width=True): pop_menu_mandiri(user)
+    if c1.button("🚀 ABSEN / HADIR", use_container_width=True, type="primary"): pop_menu_mandiri(user)
+    if c2.button("📝 ISI LAPKIN", use_container_width=True): pop_menu_mandiri(user)
     st.divider()
     data_log = process_attendance([URL_PNS, URL_PPPK], [user['nama']], datetime.now())
     render_monitoring_list([user['nama']], data_log)
@@ -187,7 +186,7 @@ def show_pegawai(user):
 def show_admin(user, database):
     inject_custom_css()
     st.subheader("🏛️ Administrator Panel")
-    if st.button("📂 MENU MANDIRI SAYA", key="adm_mandiri", use_container_width=True): pop_menu_mandiri(user)
+    if st.button("📂 MENU MANDIRI SAYA", use_container_width=True): pop_menu_mandiri(user)
     tab1, tab2 = st.tabs(["🔍 MONITORING", "👥 KELOLA USER"])
     with tab1:
         tgl = st.date_input("Pilih Tanggal Monitoring:", datetime.now())
@@ -199,7 +198,7 @@ def show_admin(user, database):
 def show_bendahara(user):
     inject_custom_css()
     st.subheader("💰 Menu Bendahara")
-    if st.button("📂 MENU MANDIRI SAYA", key="bend_mandiri", use_container_width=True): pop_menu_mandiri(user)
+    if st.button("📂 MENU MANDIRI SAYA", use_container_width=True): pop_menu_mandiri(user)
     tgl = st.date_input("Rekap Kehadiran Tanggal:", datetime.now())
     data_log = process_attendance([URL_PNS, URL_PPPK], list(DATABASE_INFO.keys()), tgl)
     render_monitoring_list(list(DATABASE_INFO.keys()), data_log)
