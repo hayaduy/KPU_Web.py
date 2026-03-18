@@ -9,7 +9,7 @@ from core_logic import process_attendance, URL_PNS, URL_PPPK
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbxjZ8flZ-x_swbHDN4QtCLmLXaNixEej9vpJFWr74ilkLyvnxkjuFhmMsfz10EGnS8aAQ/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbzfBtzxkav_uDsJcKv-nTO5i8Yt_AebAxSCEJ6HRKfqXJOJ0FL7e5easfQT7fd-LZ1A/exec"
 # URL LAPKIN BARU YANG ABANG BERIKAN
-URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbyQHlv9fBC6nOLKqe3SgacYNQMCd1-34M9Q1JVZS8eR6DTTSCGXeD_jPJLCvDxVzgbs/exec"
+URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbw1jVmn9gKFn52WOnIRfpF7QrSInoIP0vDbI8qU_1cdQT9IUPvFuXtxmzk534FYf2_T/exec"
 
 # --- 2. CSS CUSTOM (TAB CENTER & KPU RED) ---
 def inject_custom_css():
