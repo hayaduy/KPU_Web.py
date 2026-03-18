@@ -10,7 +10,7 @@ from core_logic import process_attendance, URL_PNS, URL_PPPK
 # --- 1. KONFIGURASI URL ---
 URL_API_PNS = "https://script.google.com/macros/s/AKfycbyWJbg_KceQroTV51pFuM30Ij-K4VwynhjK9NI2R-VBYrLJEA1rh7prec4MvNiKBUJV/exec"
 URL_API_PPPK = "https://script.google.com/macros/s/AKfycbwWKNLcFa06rxdCSbr1Ex-6dTUzjxJndEfF_bnBZx0oPOevtXqB6H3nUttupzE2D9yn/exec"
-URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbzJ_gHm4clqncelQOKDdHR6UK9wiTXgMNSqLMQnBBNVCg4F-Arnch062h6Xaxo3Excd/exec"
+URL_API_LAPKIN = "https://script.google.com/macros/s/AKfycbyXtsnv9OQ1qDkF41iCsqWzcQbqy0YKmrdrzzR4bAno19g3RRWjhpxxeKTDW1c05Irz/exec"
 
 # --- 2. FUNGSI AMBIL DATA LAPKIN (SUPER FLEXIBLE) ---
 def get_lapkin_data(nama_user, bulan_nama, tahun):
