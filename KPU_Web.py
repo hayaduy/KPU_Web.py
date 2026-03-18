@@ -8,17 +8,17 @@ import pytz
 import random
 import time
 from math import radians, cos, sin, asin, sqrt
+from streamlit_js_eval import get_geolocation
 
 # --- 1. SETUP PAGE ---
-st.set_page_config(page_title="KPU HSS Presence Hub v91.0", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="KPU HSS Presence Hub v92.0", layout="wide", page_icon="🏛️")
 wita_tz = pytz.timezone('Asia/Makassar')
 
-# KOORDINAT KANTOR KPU KAB. HSS (Silakan sesuaikan jika perlu)
+# KOORDINAT KANTOR KPU KAB. HSS
 LAT_KANTOR = -2.775087
 LON_KANTOR = 115.228639
-RADIUS_KM = 0.1  # Radius 100 meter
+RADIUS_METER = 100 
 
-# --- DATABASE LIBUR & CUTI BERSAMA 2026 ---
 LIBUR_DAN_CUTI_2026 = {
     "2026-01-01": "Tahun Baru 2026", "2026-01-19": "Isra Mi'raj", "2026-02-17": "Imlek",
     "2026-03-18": "Cuti Nyepi", "2026-03-19": "Cuti Nyepi", "2026-03-20": "Hari Nyepi",
@@ -27,6 +27,8 @@ LIBUR_DAN_CUTI_2026 = {
     "2026-05-01": "Hari Buruh", "2026-05-14": "Kenaikan Yesus", "2026-05-22": "Waisak",
     "2026-06-01": "Hari Lahir Pancasila", "2026-08-17": "HUT RI", "2026-12-25": "Natal"
 }
+
+LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 st.markdown("""
     <style>
@@ -50,28 +52,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- JAVASCRIPT GEOLOCATION ---
-def get_location_component():
-    return st.components.v1.html("""
-        <script>
-        navigator.geolocation.getCurrentPosition(function(position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            window.parent.postMessage({type: 'location', lat: lat, lon: lon}, '*');
-        }, function(error) {
-            window.parent.postMessage({type: 'location_error', error: error.message}, '*');
-        });
-        </script>
-    """, height=0)
-
-# --- HA VERSINE FORMULA (Hitung Jarak) ---
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371 # Radius bumi KM
+# --- 2. LOGIC Jarak ---
+def hitung_jarak(lat1, lon1, lat2, lon2):
+    R = 6371000 # Meter
     dLat, dLon = radians(lat2 - lat1), radians(lon2 - lon1)
     a = sin(dLat / 2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dLon / 2)**2
     return R * 2 * asin(sqrt(a))
 
-# --- 2. CONFIGURATION & DATABASE ---
+# --- 3. CONFIGURATION & DATABASE (31 Orang) ---
 URL_PNS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYD-AykhJVjxuA9m58Lm2V_cRkY0lJCU-tqRkC3KSIYapExZ_mjjUp7P0cPN65woxgP40cAFT0OQxB/pub?output=csv"
 URL_PPPK = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBqcP87DFbzstOyigKoUnn35yItImnsvxm_5F7oJLgeFmGVYjXXmTv7GpBWV6yEjkdwJkQ26yOVg_1/pub?output=csv"
 URL_LAPKIN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAsm8AeVaDEUfGHvO95Q4IGSjmd7rDnK1Xt305f5UVrbr6V1TxURbVAnKLCfwv7My_NveJvbK439Wx/pub?output=csv"
@@ -81,8 +69,8 @@ FORM_ID_PNS = "1FAIpQLSdfwUrcxoTer6M2NEMOpxoFYF8e9lBe5reG7rF1ZQIdtjRwzA"
 FORM_ID_PPPK = "1FAIpQLSe4pgHjDzZB9OTgbq7XNw5SWTNIo0AjTnnVUukd13e9BgkNPw"
 E_NAMA, E_NIP, E_JABATAN = "entry.960346359", "entry.468881973", "entry.159009649"
 
-# (Database Info tetap sama seperti versi 88.0)
 DATABASE_INFO = {
+    # PNS & KASUBBAG
     "Suwanto, SH., MH.": ["19720521 200912 1 001", "Sekretaris", "Sekretariat KPU Kab. Hulu Sungai Selatan", "-", "PNS", "Ketua KPU Kab. HSS", "-"],
     "Wawan Setiawan, SH": ["19860601 201012 1 004", "Kasubbag TP-Hupmas", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
     "Ineke Setiyaningsih, S.Sos": ["19831003 200912 2 001", "Kasubbag Keuangan, Umum dan Logistik", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PNS", "Suwanto, SH., MH.", "19720521 200912 1 001"],
@@ -100,6 +88,7 @@ DATABASE_INFO = {
     "Syaiful Anwar": ["19741127 200710 1 001", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Hukum dan Sumber Daya Manusia", "PNS", "Farah Agustina Setiawati, SH", "19840828 201012 2 003"],
     "Zainal Hilmi Yustan": ["19821025 200701 1 003", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
     "Alfian Ridhani, S.Kom": ["19950903202506 1 005", "Penata Kelola Sistem Dan Teknologi Informasi", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Perencanaan, Data dan Informasi", "PNS", "Rusma Ariati, SE", "19840621 201101 2 013"],
+
     "Saiful Fahmi, S.Pd": ["199506172025211036", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Sulaiman": ["198411222024211010", "PENATA KELOLA PEMILU AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Teknis Penyelenggaraan Pemilu, Partisipasi dan Hubungan Masyarakat", "PPPK", "Wawan Setiawan, SH", "19860601 201012 1 004"],
     "Sya'bani Rona Baika": ["199202072024212044", "PRANATA KOMPUTER AHLI PERTAMA", "Sekretariat KPU Kab. Hulu Sungai Selatan", "Sub Bagian Keuangan, Umum dan Logistik", "PPPK", "Ineke Setiyaningsih, S.Sos", "19831003 200912 2 001"],
@@ -118,56 +107,54 @@ DATABASE_INFO = {
 
 MASTER_PNS = [k for k, v in DATABASE_INFO.items() if v[4] == "PNS"]
 MASTER_PPPK = [k for k, v in DATABASE_INFO.items() if v[4] == "PPPK"]
-LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-
-# --- 3. HELPERS ---
-def get_clean_df(url):
-    try:
-        r = requests.get(f"{url}&cb={random.random()}", timeout=15)
-        return pd.read_csv(StringIO(r.text)).dropna(how='all')
-    except: return None
 
 # --- 4. DIALOGS ---
-@st.dialog("Update Data (Radius Area)")
+@st.dialog("Update Data")
 def pop_update(nama):
     st.write(f"Pegawai: **{nama}**")
     
-    # DETEKSI LOKASI USER
-    st.info("🕒 Sedang memverifikasi lokasi GPS Anda...")
-    # Komponen dummy untuk trigger izin GPS (Di smartphone user harus klik 'Allow')
-    location = st.text_input("Gunakan GPS HP (Ketik 'Cek' atau biarkan kosong):")
-    
-    # Simulasi Geofencing (Harus di-allow di browser)
-    # Catatan: Di Streamlit Cloud harus menggunakan library khusus untuk GPS murni.
-    # Kode ini akan mengandalkan input konfirmasi lokasi sederhana sebagai gerbang awal.
-    
+    # AMBIL GPS LANGSUNG
+    loc = get_geolocation()
+    jarak = 999999
+    is_in_range = False
+
+    if loc:
+        u_lat, u_lon = loc['coords']['latitude'], loc['coords']['longitude']
+        jarak = hitung_jarak(u_lat, u_lon, LAT_KANTOR, LON_KANTOR)
+        is_in_range = jarak <= RADIUS_METER
+        st.info(f"📍 Jarak Anda: {int(jarak)} meter dari kantor.")
+    else:
+        st.warning("⚠️ Mohon Izinkan Akses Lokasi (GPS) agar tombol Kirim muncul.")
+
     tipe = st.radio("Pilih Kegiatan:", ["Absen", "Lapkin"])
     info = DATABASE_INFO[nama]
     
     if tipe == "Absen":
-        st.warning("Pastikan Anda sudah berada di wilayah Kantor KPU HSS.")
-        if st.button("🚀 KIRIM ABSEN"):
-            # Jika ingin kunci murni, di sini bisa ditambahkan validasi koordinat
-            f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
-            payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
-            try:
-                requests.post(f"https://docs.google.com/forms/d/e/{f_id}/formResponse", data=payload, timeout=5)
-                st.success("Terkirim! Lokasi Terverifikasi."); time.sleep(1.5); st.rerun()
-            except: st.success("Selesai!"); time.sleep(1.5); st.rerun()
+        if is_in_range:
+            if st.button("🚀 KIRIM ABSEN SEKARANG"):
+                f_id = FORM_ID_PNS if info[4] == "PNS" else FORM_ID_PPPK
+                payload = {E_NAMA: nama, E_NIP: info[0], E_JABATAN: info[1], "submit": "Submit"}
+                try:
+                    requests.post(f"https://docs.google.com/forms/d/e/{f_id}/formResponse", data=payload, timeout=5)
+                    st.success("Terkirim!"); time.sleep(1.5); st.rerun()
+                except: st.success("Selesai!"); time.sleep(1.5); st.rerun()
+        else:
+            st.error("🚫 Tombol Kirim Terkunci. Anda berada di luar wilayah kantor!")
     else:
+        # Lapkin tidak dikunci GPS (Bisa isi laporan di rumah)
         st_fix = st.selectbox("Status:", ["Hadir", "Izin", "Sakit", "Tugas Luar", "Cuti"])
         h_kerja = st.text_area("Uraian Hasil Kerja:")
         if st.button("📝 SIMPAN LAPKIN"):
             payload = {"nama": nama, "nip": info[0], "jabatan": info[1], "status": st_fix, "hasil": h_kerja}
             requests.post(SCRIPT_LAPKIN, json=payload); st.success("Tersimpan!"); time.sleep(1); st.rerun()
 
-# (Dialog Rekap & Cetak tetap sama seperti Versi 90)
+# --- REKAP & DOWNLOAD (Tetap Aman) ---
 @st.dialog("Advanced Rekap Excel", width="large")
 def pop_rekap():
     st.markdown("### 📊 FILTER REKAP LENGKAP")
     c1, c2 = st.columns(2)
-    with c1: r_bulan = st.selectbox("Pilih Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
-    with c2: r_tahun = st.selectbox("Pilih Tahun:", ["2025", "2026", "2027"], index=1)
+    with c1: r_bulan = st.selectbox("Bulan:", ["SEPANJANG TAHUN"] + LIST_BULAN)
+    with c2: r_tahun = st.selectbox("Tahun:", ["2025", "2026", "2027"], index=1)
     c3, c4 = st.columns(2)
     with c3: r_kat = st.selectbox("Jenis Pegawai:", ["SEMUA PEGAWAI", "PNS", "PPPK"])
     with c4:
@@ -175,7 +162,13 @@ def pop_rekap():
         elif r_kat == "PPPK": opts = ["-- Semua PPPK --"] + MASTER_PPPK
         else: opts = ["-- Semua Pegawai --"] + list(DATABASE_INFO.keys())
         r_nama = st.selectbox("Pilih Nama Spesifik:", opts)
-    if st.button("📊 PROSES & DOWNLOAD EXCEL", use_container_width=True):
+
+    if st.button("📊 PROSES DATA", use_container_width=True):
+        def get_clean_df(url):
+            try:
+                r = requests.get(f"{url}&cb={random.random()}", timeout=15)
+                return pd.read_csv(StringIO(r.text)).dropna(how='all')
+            except: return None
         df1, df2 = get_clean_df(URL_PNS), get_clean_df(URL_PPPK)
         if df1 is not None and df2 is not None:
             df = pd.concat([df1, df2], ignore_index=True)
@@ -188,6 +181,11 @@ def pop_cetak():
     c_b = st.selectbox("Pilih Bulan Laporan:", LIST_BULAN, index=datetime.now(wita_tz).month-1)
     c_n = st.selectbox("Pilih Nama Pegawai:", list(DATABASE_INFO.keys()))
     if st.button("📊 GENERATE LAPKIN", use_container_width=True):
+        def get_clean_df(url):
+            try:
+                r = requests.get(f"{url}&cb={random.random()}", timeout=15)
+                return pd.read_csv(StringIO(r.text)).dropna(how='all')
+            except: return None
         df = get_clean_df(URL_LAPKIN)
         if df is not None:
             df_f = df[(df.iloc[:, 1] == c_n)].copy()
@@ -199,6 +197,12 @@ def pop_cetak():
                 else:
                     j_raw = DATABASE_INFO.get(atasan_nama, ["-", "Kepala Sub Bagian"])[1]
                     j_atasan = j_raw
+                    if "Kasubbag" in j_raw or "TP-Hupmas" in j_raw:
+                        if "TP-Hupmas" in j_raw: j_atasan = "Kepala Sub Bagian Teknis Penyelenggaraan Pemilu,\nPartisipasi dan Hubungan Masyarakat"
+                        elif "Keuangan" in j_raw: j_atasan = "Kepala Sub Bagian Keuangan,\nUmum dan Logistik"
+                        elif "Hukum" in j_raw: j_atasan = "Kepala Sub Bagian Hukum dan\nSumber Daya Manusia"
+                        elif "Perencanaan" in j_raw: j_atasan = "Kepala Sub Bagian Perencanaan,\nData dan Informasi"
+
                 hr_t = calendar.monthrange(datetime.now(wita_tz).year, LIST_BULAN.index(c_b)+1)[1]
                 tgl_f = f"{hr_t} {c_b} {datetime.now(wita_tz).year}"
                 out = BytesIO()
@@ -228,10 +232,16 @@ with mid:
 st.write("---")
 tab_all, tab_pns, tab_pppk = st.tabs(["🌎 SEMUA PEGAWAI", "👥 PNS", "👥 PPPK"])
 
+def get_clean_df_main(url):
+    try:
+        r = requests.get(f"{url}&cb={random.random()}", timeout=15)
+        return pd.read_csv(StringIO(r.text)).dropna(how='all')
+    except: return None
+
 def render_ui(urls, masters, tgl_target, tab_id):
     all_dfs = []
     for u in urls:
-        df_t = get_clean_df(u)
+        df_t = get_clean_df_main(u)
         if df_t is not None: all_dfs.append(df_t)
     if not all_dfs: return
     df = pd.concat(all_dfs, ignore_index=True)
@@ -240,10 +250,10 @@ def render_ui(urls, masters, tgl_target, tab_id):
     for _, r in df.iterrows():
         ts = str(r.iloc[0])
         if d_f1 in ts or d_f2 in ts:
-            n_raw = str(r.iloc[1]).strip().lower().replace(",", "").replace(".", "").replace(" ", "")
+            n_raw = clean_logic(r.iloc[1])
             dt = pd.to_datetime(ts, errors='coerce')
             if pd.isna(dt): continue
-            matched = next((m for m in masters if str(m).strip().lower().replace(",", "").replace(".", "").replace(" ", "") == n_raw), None)
+            matched = next((m for m in masters if clean_logic(m) == n_raw), None)
             if matched:
                 if matched not in log: log[matched] = {"m": dt.strftime("%H:%M"), "p": "--:--", "k": "HADIR" if dt.hour < 9 else "TERLAMBAT"}
                 if dt.hour >= 15: log[matched]["p"] = dt.strftime("%H:%M")
